@@ -40,15 +40,17 @@ class CountingBloomFilter:
         self._count = 0
 
     def _hashes(self, item: str) -> List[int]:
-        """Generate k hash indices for a given item using cryptographic salts."""
+        """
+        Generate k hash indices for a given item using Kirsch-Mitzenmacher double hashing:
+        g_i(x) = (h1(x) + i * h2(x)) mod m.
+        Uses a single 16-byte BLAKE2b digest providing two 64-bit independent hashes.
+        """
         raw_bytes = item.encode("utf-8")
-        indices = []
-        for i in range(self.num_hashes):
-            salt = i.to_bytes(4, byteorder="big")
-            digest = hashlib.blake2b(raw_bytes, digest_size=8, salt=salt).digest()
-            idx = int.from_bytes(digest, byteorder="big") % self.size
-            indices.append(idx)
-        return indices
+        digest = hashlib.blake2b(raw_bytes, digest_size=16).digest()
+        h1 = int.from_bytes(digest[:8], byteorder="big")
+        h2 = int.from_bytes(digest[8:], byteorder="big") | 1  # ensure odd/non-zero
+        size = self.size
+        return [(h1 + i * h2) % size for i in range(self.num_hashes)]
 
     def add(self, item: str) -> None:
         """Add an item to the filter, incrementing counters."""

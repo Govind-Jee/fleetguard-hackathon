@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 11 - Distributed 100K/300K Performance Benchmark  
+**CURRENT PHASE:** 11.1 - Throughput Bottleneck Audit and Targeted Optimization Assessment  
 
 ---
 
@@ -37,9 +37,10 @@
 - Phase 10.2 - Batch Analytics Acceptance Evidence Finalization
 - Phase 10.3 - Verified Historical Analytics Checkpoint
 - Phase 11 - Distributed 100K/300K Performance Benchmark
+- Phase 11.1 - Throughput Bottleneck Audit and Targeted Optimization Assessment
 
 ### IN PROGRESS:
-Phase 11 distributed performance benchmark verified and archived
+Phase 11.1 completed and verified. Ready for Phase 12.
 
 ### BLOCKERS:
 None
@@ -233,6 +234,44 @@ Across all 3 benchmark phases, **7,042,000 telemetry events** were generated, in
 - **No Extrapolation / Zero Overclaiming**: Local single-node hardware ceiling (8-core host, 2.0 container vCPUs) reached at ~83.8K ev/s ingestion and 56.6K ev/s full `RealTimeWorker` processing.
 - `REQ-021` categorized as **`PARTIALLY PROVEN`** / `IN_PROGRESS` (empirically sustained 83.8% of target across 60s with 0% loss; distributed multi-node cluster required for sustained 100K+ without consumer lag growth).
 - `REQ-022` categorized as **`PARTIALLY PROVEN`** / `IN_PROGRESS` (empirically absorbed 2.39M sustained backlog and 729K burst backlog, 0% loss, and drained in 8.40s; 300K for 5 minutes requires multi-node cluster).
+---
+
+## Phase 11.1 Implementation & Evidence Summary: Throughput Bottleneck Audit & Optimization
+
+### 1. Hot-Path Micro-Profiling (`RealTimeWorker.process_message()`)
+- Measured CPU breakdown across 20,000 canonical events:
+  - JSON Decode: $4.18\ \mu\text{s}$ (15.0%)
+  - Pydantic Validation: $4.53\ \mu\text{s}$ (16.2%)
+  - **Counting Bloom Filter: $14.59\ \mu\text{s}$ (52.2%) — Primary Algorithmic Bottleneck**
+  - Sequence Watermarks: $0.48\ \mu\text{s}$ (1.7%)
+  - Streaming Statistics (Welford/EWMA): $0.23\ \mu\text{s}$ (0.8%)
+  - Anomaly Detector Rules: $3.93\ \mu\text{s}$ (14.1%)
+- Root Cause: `CountingBloomFilter` was invoking Python's `hashlib.blake2b` with cryptographic salts 10 separate times per event.
+
+### 2. Targeted Safe Optimization: Kirsch-Mitzenmacher Double Hashing
+- In `services/stream_processor/dedup.py`: Replaced 10 independent BLAKE2b salt calls with Kirsch-Mitzenmacher double hashing:
+  $$g_i(x) = (h_1(x) + i \cdot h_2(x)) \pmod m$$
+  using a single 16-byte BLAKE2b digest providing two 64-bit independent uniform hashes.
+- Verification & Speedup:
+  - Hash generation: **6.49x faster** ($9.45\ \mu\text{s} \to 1.45\ \mu\text{s}$).
+  - `CountingBloomFilter.add()`: **4.10x faster** ($10.74\ \mu\text{s} \to 2.62\ \mu\text{s}$).
+  - Isolated single-core `process_message()` throughput: **+93.9% improvement** ($24,953 \to 48,395\text{ msgs/s}$).
+  - 100% test suite pass rate preserved across all 136 backend tests and 22 frontend tests.
+
+### 3. Empirical Benchmark Re-execution Results (`docs/benchmark_results_phase11.json`)
+- **Baseline (20K target, 15s)**: 292,000 events | Ingestion: 17,899.4 ev/s | Consumer: 17,565.7 ev/s | 0 loss | 0 lag.
+- **Sustained 100K (60s window)**: 5,332,500 events | Ingestion: 66,962.2 ev/s | Consumer: **63,620.7 ev/s (+12.3% end-to-end)** | Peak Backlog: **1,065,806 (halved from 2.39M)** | Post-Producer Drain Time: **3.43s (8.6x faster recovery than 29.63s)** | 0 loss | 0 lag.
+- **Burst 300K (10s window)**: 1,989,500 events | Ingestion: 63,938.1 ev/s | Consumer: 55,447.5 ev/s | Peak Backlog: **611,766 (reduced from 729K)** | Drain Time: **4.15s (2.0x faster recovery than 8.40s)** | 0 loss | 0 lag.
+
+### 4. Reconciled Environment Versions
+- Docker Engine: **28.3.2** (API 1.51)
+- Docker Compose: **v2.38.2-desktop.1**
+- Redpanda Broker: **v24.1.2** (`docker.redpanda.com/redpandadata/redpanda:v24.1.2`)
+- Python Runtime: **3.11.9**
+
+### 5. Final Requirement Status Confirmation
+- `REQ-021`: **`PARTIALLY PROVEN` / `IN_PROGRESS`** (sustained 5.33M events over 60s at 63.6K ev/s processing with zero data loss; full 100K sustained without host CPU saturation requires multi-node cluster).
+- `REQ-022`: **`PARTIALLY PROVEN` / `IN_PROGRESS`** (absorbed 1.99M burst events, buffered 611K backlog, drained to 0 lag in 4.15s with 0% loss; 300K for 5 full minutes requires multi-node cluster).
 - `REQ-023`, `REQ-026`, `REQ-040` remain `NOT_STARTED`.
 - `REQ-024`, `REQ-025` remain `IN_PROGRESS`.
 

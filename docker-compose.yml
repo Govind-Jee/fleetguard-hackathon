@@ -1,0 +1,166 @@
+name: fleetguard-pulse
+
+networks:
+  fleetguard-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  clickhouse_data:
+  redpanda_data:
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fleetguard-postgres
+    restart: unless-stopped
+    networks:
+      - fleetguard-net
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fleetguard_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fleetguard_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-fleetguard}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init-vector.sql:/docker-entrypoint-initdb.d/init-vector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fleetguard_user} -d ${POSTGRES_DB:-fleetguard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  mongodb:
+    image: mongo:7.0
+    container_name: fleetguard-mongodb
+    restart: unless-stopped
+    networks:
+      - fleetguard-net
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-fleetguard_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-fleetguard_dev_password}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping')\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: fleetguard-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - fleetguard-net
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 3s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.2"
+          memory: 128M
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: fleetguard-clickhouse
+    restart: unless-stopped
+    networks:
+      - fleetguard-net
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-fleetguard_dev_password}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-fleetguard_analytics}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  redpanda:
+    image: redpandadata/redpanda:v24.1.2
+    container_name: fleetguard-redpanda
+    restart: unless-stopped
+    networks:
+      - fleetguard-net
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:29092,OUTSIDE://${REDPANDA_HOST:-localhost}:${REDPANDA_KAFKA_PORT:-9092}
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=redpanda:8082
+    ports:
+      - "${REDPANDA_KAFKA_PORT:-9092}:9092"
+      - "${REDPANDA_ADMIN_PORT:-9644}:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+        reservations:
+          cpus: "0.5"
+          memory: 512M

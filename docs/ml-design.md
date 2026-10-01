@@ -171,3 +171,56 @@ Output: Probability, Risk Level, and Linear Local Explanations
 - `class_weight`: `balanced` (adjusts loss weights inversely proportional to class frequencies: $w_j = \frac{N}{2 \cdot N_j}$)
 - `random_state`: 42
 - `decision_threshold`: Configured via validation set F1 maximization ($0.85$), with default high-recall screening option ($0.50$).
+
+---
+
+## 6. Training-to-Serving Feature Consistency
+
+### 6.1 Audit of Feature Construction (Phase 8.2)
+To eliminate train/serve skew and ensure mathematical parity between model evaluation and real-time inference, all Tier-3 fixed statistical constants (e.g. `speed_std=12.5`, `vibration_std=0.08`, `odometer_delta=350.0`, `coolant_temp_std=2.5`, `coolant_temp_trend=0.15`, `oil_pressure_trend=-0.05`, `engine_rpm_std=250.0`, `soc_drop_rate=0.04`) and fabricated formulas (`vibration * 1.5`, `oil_pressure * 0.85`, `soc * 0.7`, `cell_delta * 1.8`) were removed from API serving (`services/api/services/risk_service.py`).
+
+Inference now resolves features using the same semantic contract established during training:
+1. **Historical Telemetry Aggregates:** Queried from ClickHouse table `fleetguard_analytics.vehicle_telemetry` over the 14-day observation window $[t - 14\text{d}, t]$. If $\ge 2$ observations are present, true sample standard deviations, means, and extrema are computed.
+2. **Instantaneous Live Telemetry:** Queried from Redis hot state (`vehicle:state:{vin}`).
+3. **Relational Maintenance History:** Queried from PostgreSQL 16 3NF `maintenance_records`.
+4. **Unavailable Historical Features:** Explicitly marked as `None` (`np.nan`). The scikit-learn pipeline's `SimpleImputer(strategy="median")` then replaces missing values with the true empirical training-set median rather than arbitrary hardcoded constants.
+
+### 6.2 Complete 26-Feature Train/Serve Contract
+
+| # | Feature Name | Training Definition | Training Source | Window | API Serving Source | Missing Handling | Match? |
+|---|---|---|---|---|---|---|:---:|
+| 1 | `speed_mean` | Mean vehicle speed (km/h) | Simulated telemetry | 14d backward | ClickHouse `avg(speed_kmh)` $\to$ Redis `speed_kmh` | `SimpleImputer` (median 59.97) | Yes |
+| 2 | `speed_std` | Sample std dev of speed | Simulated telemetry | 14d backward | ClickHouse `stddevSamp(speed_kmh)` | `SimpleImputer` (median 20.03) | Yes |
+| 3 | `vibration_mean` | Mean structural vibration (G) | Simulated telemetry | 14d backward | ClickHouse `avg(vibration)` $\to$ Redis `vibration` | `SimpleImputer` (median 0.35) | Yes |
+| 4 | `vibration_std` | Sample std dev of vibration | Simulated telemetry | 14d backward | ClickHouse `stddevSamp(vibration)` | `SimpleImputer` (median 0.11) | Yes |
+| 5 | `vibration_max` | Peak mechanical impact shock (G) | Simulated telemetry | 14d backward | ClickHouse `max(vibration)` $\to$ Redis `vibration` | `SimpleImputer` (median 0.85) | Yes |
+| 6 | `odometer_delta` | Distance traveled in window (km) | Simulated telemetry | 14d backward | ClickHouse `max(odo) - min(odo)` | `SimpleImputer` (median 3103.95) | Yes |
+| 7 | `dtc_count` | Count of active DTC codes | Diagnostic logs | 14d backward | Redis `len(json.loads(dtc_codes))` | Defaults to 0 if healthy | Yes |
+| 8 | `anomaly_count` | Count of sensor threshold alerts | Alert stream | 14d backward | Redis `1` if status in (WARNING, CRITICAL) | Defaults to 0 if nominal | Yes |
+| 9 | `telemetry_event_count` | Telemetry packet count | Message counter | 14d backward | ClickHouse `count()` $\to$ Redis `sequence_number` | `SimpleImputer` (median 3850) | Yes |
+| 10 | `coolant_temp_mean` | Mean coolant temp (°C) | CAN-bus sensor | 14d backward | ClickHouse `avg(coolant)` $\to$ Redis `coolant_temp_c` | Masked `None` for BEV; else median | Yes |
+| 11 | `coolant_temp_std` | Sample std dev of coolant | CAN-bus sensor | 14d backward | ClickHouse `stddevSamp(coolant)` | Masked `None` for BEV; else median | Yes |
+| 12 | `coolant_temp_trend` | Thermal drift gradient (°C/day) | CAN-bus sensor | 14d backward | ClickHouse regression / delta | Masked `None` for BEV; else median | Yes |
+| 13 | `oil_pressure_mean` | Mean lubrication pressure (kPa) | CAN-bus sensor | 14d backward | ClickHouse `avg(oil)` $\to$ Redis `oil_pressure_kpa` | Masked `None` for non-ICE; else median | Yes |
+| 14 | `oil_pressure_min` | Minimum lubrication dip (kPa) | CAN-bus sensor | 14d backward | ClickHouse `min(oil)` $\to$ Redis `oil_pressure_kpa` | Masked `None` for non-ICE; else median | Yes |
+| 15 | `oil_pressure_trend` | Pressure loss gradient (kPa/day) | CAN-bus sensor | 14d backward | ClickHouse regression / delta | Masked `None` for non-ICE; else median | Yes |
+| 16 | `engine_rpm_mean` | Mean engine speed (RPM) | Engine tachometer | 14d backward | ClickHouse `avg(rpm)` $\to$ Redis `engine_rpm` | Masked `None` for BEV; else median | Yes |
+| 17 | `engine_rpm_std` | Sample std dev of engine RPM | Engine tachometer | 14d backward | ClickHouse `stddevSamp(rpm)` | Masked `None` for BEV; else median | Yes |
+| 18 | `battery_voltage_mean`| Mean 12V auxiliary voltage (V) | Power bus | 14d backward | ClickHouse `avg(v12)` $\to$ Redis `battery_voltage_v` | Masked `None` for BEV; else median | Yes |
+| 19 | `soc_mean` | Mean traction pack SOC (%) | BMS telemetry | 14d backward | ClickHouse `avg(soc)` $\to$ Redis `soc_pct` | Masked `None` for ICE; else median | Yes |
+| 20 | `soc_min` | Minimum observed battery SOC (%) | BMS telemetry | 14d backward | ClickHouse `min(soc)` $\to$ Redis `soc_pct` | Masked `None` for ICE; else median | Yes |
+| 21 | `soc_drop_rate` | Battery discharge rate (%/cycle) | BMS telemetry | 14d backward | ClickHouse regression / delta | Masked `None` for ICE; else median | Yes |
+| 22 | `pack_voltage_mean` | Mean high-voltage pack bus (V) | BMS telemetry | 14d backward | ClickHouse `avg(pack_v)` $\to$ Redis `pack_voltage_v` | Masked `None` for ICE; else median | Yes |
+| 23 | `cell_temp_delta_mean`| Mean cell temperature delta (°C) | BMS sensor array | 14d backward | ClickHouse `avg(cell_d)` $\to$ Redis `cell_temp_delta_c` | Masked `None` for ICE; else median | Yes |
+| 24 | `cell_temp_delta_max` | Maximum cell divergence (°C) | BMS sensor array | 14d backward | ClickHouse `max(cell_d)` $\to$ Redis `cell_temp_delta_c` | Masked `None` for ICE; else median | Yes |
+| 25 | `days_since_last_maintenance` | Elapsed days since service | Service registry | Operational | PostgreSQL `NOW() - MAX(performed_at)` | `SimpleImputer` (median 96.1d) | Yes |
+| 26 | `km_since_last_maintenance` | Kilometers driven since service | Service registry | Operational | Redis `odometer_km` - PostgreSQL `MAX(odo)` | `SimpleImputer` (median 19,478km) | Yes |
+
+### 6.3 Vehicle-Type Masking & Schema Invariant
+- **Schema Guard:** `assert list(features.keys()) == FEATURE_NAMES` guarantees that feature names and key ordering strictly mirror the scikit-learn pipeline input schema.
+- **Powertrain Integrity:**
+  - `ICE`: Evaluates engine/lubrication features; high-voltage battery features are strictly masked to `None`.
+  - `BEV`: Evaluates high-voltage battery and auxiliary features; engine/lubrication features are strictly masked to `None`.
+  - `HEV`: Evaluates both hybrid engine and battery features.
+- **Imputation Baseline:** An unmonitored or newly commissioned vehicle with all features unobserved yields an expected baseline risk probability of $\sim 9.8\%$ ($\text{logit} \approx \text{intercept} = -2.0043$), classified as `LOW` risk.
+

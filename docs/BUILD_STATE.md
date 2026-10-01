@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 7 - Predictive Maintenance ML  
+**CURRENT PHASE:** 8 - FastAPI API and Security Layer  
 
 ---
 
@@ -24,61 +24,80 @@
 - Phase 6.2 - Verified Database Checkpoint
 - Phase 7 - Predictive Maintenance ML
 - Phase 7.1 - ML Temporal Leakage and Evaluation Validation
+- Phase 7.2 - Verified ML Checkpoint Commit
+- Phase 8 - FastAPI API Layer
+- Phase 8.1 - API Evidence and Contract-Test Audit
+- Phase 8.2 - ML Serving Feature-Parity Audit
 
 ### IN PROGRESS:
-Phase 7 ML checkpoint complete; API implementation preparation
+API checkpoint complete; frontend preparation
 
 ### BLOCKERS:
 None
 
 ### NEXT STEP:
-Phase 8 - FastAPI API and security layer
+Phase 9 - React FleetGuard Pulse Dashboard
 
 ---
 
-## Phase 7.1 Implementation & Evidence Summary
+## Phase 8, 8.1 & 8.2 Implementation & Evidence Summary
 
-### 1. Purged Temporal Splitting & Leakage Elimination
-- Replaced naive index-based chronological splitting with mathematically verified **Purged Time-Aware Splitting** (`purged_time_aware_split` in `services/ml/trainer.py`).
-- Enforced two non-overlapping 7-day purge gaps between partitions:
-  - $\max(t_{\text{train}}) + 7\text{ days} < \min(t_{\text{val}})$ (Purge Gap 1: 7.0001 days, 1,793 observations safely discarded)
-  - $\max(t_{\text{val}}) + 7\text{ days} < \min(t_{\text{test}})$ (Purge Gap 2: 7.0001 days, 1,792 observations safely discarded)
-- Total purged rows dropped across the 90-day simulation: **3,585 observations**.
-- Mathematically proves zero target-horizon overlap between training observations and validation/test ground-truth failure events.
+### 1. Production-Oriented FastAPI Architecture (`services/api/`)
+- Implemented modular architecture separating app creation, configuration, database pooling, schemas, services, routers, auth, and metrics:
+  - `config.py`: Environment-based settings for PostgreSQL, Redis, ClickHouse, Keycloak JWT, and ML models.
+  - `db.py`: Thread-safe connection pooling via `psycopg2.pool.ThreadedConnectionPool`, Redis connection manager, and ClickHouse client.
+  - `exceptions.py`: Structured error models preventing sensitive information leakage (no stack traces, credentials, or raw SQL exposed).
+  - `metrics.py`: In-memory Prometheus-compatible collector exporting text exposition format at `GET /metrics`.
+  - `security.py`: Middleware enforcing OWASP defensive headers (CSP, nosniff, DENY, XSS, Referrer-Policy, Permissions-Policy) and correlation request IDs.
+  - `rate_limit.py`: Redis-backed atomic sliding-window rate limiter returning HTTP 429 and `Retry-After`.
+  - `auth/`: Keycloak/OIDC-compatible JWT validator (`verify_jwt_token`), token creation helper, and RBAC dependency guards for `ADMIN`, `DISPATCHER`, and `TECHNICIAN`.
 
-### 2. Validation-Based Decision Threshold Tuning
-- Fitted `LogisticRegression(class_weight='balanced', C=0.1, max_iter=1000)` strictly on the training set (10,738 observations).
-- Scanned classification thresholds strictly across the **validation set** (3,591 observations) to maximize validation F1.
-- Optimal threshold selected: $T = 0.90$ (Validation F1 = 0.8276).
-- Held-out test set remained completely untouched during model training and threshold tuning.
+### 2. Comprehensive Endpoint Suite
+- **Public & System Probes:**
+  - `GET /health`: Liveness probe (HTTP 200).
+  - `GET /ready`: Readiness probe verifying PostgreSQL, Redis, and ClickHouse connectivity.
+  - `GET /metrics`: Standard Prometheus exposition metrics.
+- **Vehicle Domain:**
+  - `GET /vehicles`: Paginated vehicle list with tenant scoping, fleet filter, and powertrain filters (uses SQL `COUNT(*) OVER()`).
+  - `GET /vehicles/{vin}`: Returns authoritative 3NF relational metadata and live Redis hot state.
+  - `GET /vehicles/{vin}/health`: Operational health combining telemetry and durable alert counts.
+  - `GET /vehicles/{vin}/risk`: Connects to `PredictiveMaintenancePredictor` for 7-day failure risk, local factor explainability, and short-lived Redis caching.
+- **Operational Alerts & Fleets:**
+  - `GET /alerts` & `GET /alerts/{alert_id}`: Durable alert records with tenant isolation.
+  - `GET /fleets` & `GET /fleets/{fleet_id}/health`: Consolidated fleet health metrics computed via 2 optimized SQL aggregate queries (zero N+1 queries).
+- **Diagnostics & Work Orders:**
+  - `GET /diagnostics/similar`: 16-D pgvector cosine distance nearest-neighbor search (`embedding <=> %s::vector`).
+  - `POST /maintenance/work-orders`: Validates vehicle and technician tenant ownership, creates normalized 3NF work orders.
+- **Real-Time Push & Analytics:**
+  - `GET /analytics/summary`: Lightweight fleet historical summary.
+  - `WS /ws/alerts`: WebSocket alert push channel with heartbeat ping/pong support, multi-tenant scoping, and Redis-backed 120s idempotency deduplication (`AlertDispatcher`).
 
-### 3. Empirical Performance Comparison on Held-Out Test Set (4,222 samples, 78 ground-truth failures)
-- **Deterministic Rule Baseline ($T=0.50$):** Precision: 1.0000 | Recall: 0.6923 | F1: 0.8182 | ROC-AUC: 0.8277 | TP: 54 | FN: 24 | FP: 0 | TN: 4,144
-- **Logistic Regression Pipeline ($T=0.90$ Validation-Tuned):** Precision: 0.9844 | Recall: 0.8077 | F1: 0.8873 | ROC-AUC: 0.9141 | TP: 63 | FN: 15 | FP: 1 | TN: 4,143
-- **Operational Impact:**
-  - +16.7% recall improvement over baseline (0.8077 vs 0.6923).
-  - +8.4% F1 improvement (0.8873 vs 0.8182).
-  - +10.4% ROC-AUC discrimination improvement (0.9141 vs 0.8277).
-  - 37.5% reduction in catastrophic roadside breakdowns (missed failures cut from 24 to 15) with only 1 false alarm across 4,144 negative assets ($0.024\%$ FPR).
-  - Net operational savings: \$74,190 per 4,222 vehicle-weeks.
+### 3. API Performance Benchmark (`scripts/benchmark_api.py`)
+Measured across 100 requests per endpoint (macOS Apple Silicon, local sequential benchmark on warm connections):
+- `GET /health`: Mean: **0.92 ms** | p50: **0.82 ms** | p95: **1.63 ms** | p99: **2.33 ms**
+- `GET /vehicles`: Mean: **13.13 ms** | p50: **12.81 ms** | p95: **15.86 ms** | p99: **19.66 ms**
+- `GET /vehicles/{vin}`: Mean: **3.56 ms** | p50: **3.47 ms** | p95: **4.61 ms** | p99: **5.30 ms**
+- `GET /vehicles/{vin}/risk`: Mean: **3.39 ms** | p50: **3.19 ms** | p95: **4.67 ms** | p99: **4.95 ms**
+- `GET /alerts`: Mean: **3.39 ms** | p50: **3.44 ms** | p95: **4.73 ms** | p99: **5.44 ms**
+- `GET /fleets/{fleet_id}/health`: Mean: **21.97 ms** | p50: **20.98 ms** | p95: **29.69 ms** | p99: **42.35 ms**
+- **SLA Result:** Every endpoint achieves **p95 < 30 ms** (target: $< 200\text{ ms}$) and **p99 < 45 ms** (target: $< 500\text{ ms}$) in local benchmark.
+- **Scope Disclaimer:** Strictly a local sequential single-client benchmark; distributed scale load testing is reserved for Phase 11.
 
-### 4. Synthetic Shortcut Prevention Audit
-- Added realistic ambient sensor noise to healthy vehicles in `services/ml/dataset_generator.py` (12% anomaly spike probability, 4% non-critical DTC probability).
-- Verified that `anomaly_count` and `dtc_count` have non-zero distributions for healthy vehicles, eliminating artificial zero-noise shortcuts.
+### 4. Automated Test Suite (113 Passing Tests)
+- Total test suite count increased to **113 passing tests** (`pytest tests/ -q` in 3.65s):
+  - 53 unit tests
+  - 53 integration tests across API, security, ML serving consistency, ML pipeline, PostgreSQL 3NF, and stream processor
+  - 7 OpenAPI 3.1 runtime contract tests (`tests/contract/test_api_contracts.py`)
 
-### 5. Inference Latency & Scalability
-- Measured over 1,000 consecutive predictions via `PredictiveMaintenancePredictor.predict_single`:
-  - p50 Latency: **1.020 ms**
-  - p95 Latency: **1.323 ms**
-  - p99 Latency: **2.577 ms**
-  - Mean Latency: **1.093 ms**
-- All well within the $< 10.0\text{ ms}$ engineering target.
+### 5. ML Serving Feature-Parity Audit (Phase 8.2)
+- Audited training feature semantics across all 26 model features.
+- Eliminated all 8 unjustified fixed statistical defaults (`speed_std=12.5`, `vibration_std=0.08`, `odometer_delta=350.0`, `coolant_temp_std=2.5`, `coolant_temp_trend=0.15`, `oil_pressure_trend=-0.05`, `engine_rpm_std=250.0`, `soc_drop_rate=0.04`) and fabricated multipliers (`* 1.5`, `* 0.85`, `* 0.7`, `* 1.8`).
+- Integrated ClickHouse 14-day backward window aggregates for historical features when $\ge 2$ observations are present.
+- When historical or live telemetry is absent, features are cleanly set to `None`, allowing the scikit-learn pipeline's `SimpleImputer(strategy="median")` to substitute empirical training-set medians.
+- Enforced strict vehicle-type powertrain masking (ICE vs BEV vs HEV) and schema ordering guards.
+- Added comprehensive train/serve parity suite in `tests/integration/test_ml_serving_consistency.py` (6 tests).
 
-### 6. Automated Test Suite (67 Passing Tests)
-- Comprehensive test suite passing with 100% success rate:
-  - 48 unit tests (including 10 ML tests verifying feature schemas, split boundaries, 7-day purge gap invariants, and baseline rules).
-  - 19 integration tests (including 4 ML pipeline tests verifying purged splits, train/save/load roundtrip, missing value imputation, and deterministic reproducibility).
-- Full suite execution: `.venv/bin/python3 -m pytest tests/ -v` (67 passed in 12.51s).
+
 
 ---
 

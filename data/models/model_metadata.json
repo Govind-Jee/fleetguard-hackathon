@@ -1,0 +1,265 @@
+{
+  "model_version": "1.1.0",
+  "model_type": "LogisticRegression (sklearn Pipeline with Purged Temporal Split)",
+  "training_timestamp": "2026-10-01T11:46:06.629977",
+  "random_seed": 42,
+  "feature_names": [
+    "speed_mean",
+    "speed_std",
+    "vibration_mean",
+    "vibration_std",
+    "vibration_max",
+    "odometer_delta",
+    "dtc_count",
+    "anomaly_count",
+    "telemetry_event_count",
+    "coolant_temp_mean",
+    "coolant_temp_std",
+    "coolant_temp_trend",
+    "oil_pressure_mean",
+    "oil_pressure_min",
+    "oil_pressure_trend",
+    "engine_rpm_mean",
+    "engine_rpm_std",
+    "battery_voltage_mean",
+    "soc_mean",
+    "soc_min",
+    "soc_drop_rate",
+    "pack_voltage_mean",
+    "cell_temp_delta_mean",
+    "cell_temp_delta_max",
+    "days_since_last_maintenance",
+    "km_since_last_maintenance"
+  ],
+  "intercept": -2.0043,
+  "coefficients": [
+    {
+      "feature": "vibration_mean",
+      "coefficient": 1.175,
+      "abs_impact": 1.175,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "km_since_last_maintenance",
+      "coefficient": -0.9654,
+      "abs_impact": 0.9654,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "coolant_temp_trend",
+      "coefficient": 0.9445,
+      "abs_impact": 0.9445,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "cell_temp_delta_max",
+      "coefficient": 0.8897,
+      "abs_impact": 0.8897,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "days_since_last_maintenance",
+      "coefficient": 0.8395,
+      "abs_impact": 0.8395,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "oil_pressure_min",
+      "coefficient": 0.4751,
+      "abs_impact": 0.4751,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "oil_pressure_mean",
+      "coefficient": -0.4611,
+      "abs_impact": 0.4611,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "oil_pressure_trend",
+      "coefficient": -0.4202,
+      "abs_impact": 0.4202,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "vibration_max",
+      "coefficient": -0.3807,
+      "abs_impact": 0.3807,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "anomaly_count",
+      "coefficient": 0.3788,
+      "abs_impact": 0.3788,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "odometer_delta",
+      "coefficient": 0.3531,
+      "abs_impact": 0.3531,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "cell_temp_delta_mean",
+      "coefficient": -0.243,
+      "abs_impact": 0.243,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "speed_std",
+      "coefficient": 0.2394,
+      "abs_impact": 0.2394,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "pack_voltage_mean",
+      "coefficient": 0.1996,
+      "abs_impact": 0.1996,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "coolant_temp_mean",
+      "coefficient": 0.1843,
+      "abs_impact": 0.1843,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "dtc_count",
+      "coefficient": 0.1792,
+      "abs_impact": 0.1792,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "soc_min",
+      "coefficient": -0.1786,
+      "abs_impact": 0.1786,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "coolant_temp_std",
+      "coefficient": -0.1574,
+      "abs_impact": 0.1574,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "soc_mean",
+      "coefficient": -0.1451,
+      "abs_impact": 0.1451,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "speed_mean",
+      "coefficient": -0.1388,
+      "abs_impact": 0.1388,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "engine_rpm_mean",
+      "coefficient": -0.0981,
+      "abs_impact": 0.0981,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "soc_drop_rate",
+      "coefficient": -0.0827,
+      "abs_impact": 0.0827,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "telemetry_event_count",
+      "coefficient": 0.0507,
+      "abs_impact": 0.0507,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "battery_voltage_mean",
+      "coefficient": -0.0455,
+      "abs_impact": 0.0455,
+      "direction": "REDUCES_RISK"
+    },
+    {
+      "feature": "engine_rpm_std",
+      "coefficient": 0.0089,
+      "abs_impact": 0.0089,
+      "direction": "INCREASES_RISK"
+    },
+    {
+      "feature": "vibration_std",
+      "coefficient": 0.0044,
+      "abs_impact": 0.0044,
+      "direction": "INCREASES_RISK"
+    }
+  ],
+  "threshold_selection": {
+    "method": "Validation set F1 maximization (test set untouched)",
+    "selected_threshold": 0.9,
+    "validation_f1": 0.8276
+  },
+  "split_info": {
+    "timeline_start": "2026-08-15T00:00:00",
+    "timeline_end": "2026-10-23T00:00:00",
+    "train_start": "2026-08-15T00:00:00",
+    "train_end": "2026-09-14T05:59:50.496000",
+    "purge_gap_1_start": "2026-09-14T05:59:50.496000",
+    "purge_gap_1_end": "2026-09-21T05:59:59.136000",
+    "purge_gap_1_duration_days": 7.0001,
+    "val_start": "2026-09-21T05:59:59.136000",
+    "val_end": "2026-10-02T05:59:55.680000",
+    "purge_gap_2_start": "2026-10-02T05:59:55.680000",
+    "purge_gap_2_end": "2026-10-09T06:00:04.320000",
+    "purge_gap_2_duration_days": 7.0001,
+    "test_start": "2026-10-09T06:00:04.320000",
+    "test_end": "2026-10-23T00:00:00",
+    "total_rows": 22136,
+    "train_rows": 10738,
+    "val_rows": 3591,
+    "test_rows": 4222,
+    "purged_rows": 3585
+  },
+  "split_counts": {
+    "train_samples": 10738,
+    "train_positive_rate": 0.0175,
+    "val_samples": 3591,
+    "val_positive_rate": 0.0231,
+    "test_samples": 4222,
+    "test_positive_rate": 0.0185
+  },
+  "evaluation": {
+    "baseline_rule_model": {
+      "precision": 1.0,
+      "recall": 0.6923,
+      "f1": 0.8182,
+      "roc_auc": 0.8277,
+      "true_positives": 54,
+      "false_positives": 0,
+      "true_negatives": 4144,
+      "false_negatives": 24,
+      "total_test_samples": 4222,
+      "positive_support": 78
+    },
+    "logistic_regression_validation_threshold": {
+      "precision": 0.9844,
+      "recall": 0.8077,
+      "f1": 0.8873,
+      "roc_auc": 0.9141,
+      "true_positives": 63,
+      "false_positives": 1,
+      "true_negatives": 4143,
+      "false_negatives": 15,
+      "total_test_samples": 4222,
+      "positive_support": 78
+    },
+    "logistic_regression_default_50": {
+      "precision": 0.2124,
+      "recall": 0.8333,
+      "f1": 0.3385,
+      "roc_auc": 0.9141,
+      "true_positives": 65,
+      "false_positives": 241,
+      "true_negatives": 3903,
+      "false_negatives": 13,
+      "total_test_samples": 4222,
+      "positive_support": 78
+    }
+  }
+}

@@ -34,7 +34,7 @@
 | **REQ-025** | API latency SLA: p95 under 200 ms and p99 under 500 ms | Load test benchmark report (e.g., k6/wrk/Locust) showing p95 < 200ms and p99 < 500ms under load | NOT_STARTED |
 | **REQ-026** | High-availability design targeting 99.9% uptime with no SPOF | Fault tolerance architecture documentation and component redundancy configuration | NOT_STARTED |
 | **REQ-027** | Automated test coverage of at least 80% on core services and algorithms | Code coverage tool report (e.g., pytest-cov, jest/c8) showing >= 80% coverage on core modules | NOT_STARTED |
-| **REQ-028** | Integration and service contract test suite | 53 automated tests passing: 38 unit tests + 15 integration tests (`pytest tests/ -v` in 12.66s) | IN_PROGRESS |
+| **REQ-028** | Integration and service contract test suite | 67 automated tests passing: 48 unit tests + 19 integration tests (`pytest tests/ -v` in 12.51s) | IN_PROGRESS |
 | **REQ-029** | Behavior-Driven / Acceptance testing (BDD) | Executed BDD test suite reports (e.g., Behave, Cucumber, or end-to-end acceptance tests) | NOT_STARTED |
 | **REQ-030** | Soak testing validating long-duration memory and queue stability | Multi-hour soak test metric logs demonstrating stable memory, CPU, and zero unbounded growth | NOT_STARTED |
 | **REQ-031** | Static Application Security Testing (SAST) | SAST scanner report (e.g., Bandit, Semgrep, Sonar) with 0 high/critical unresolved findings | NOT_STARTED |

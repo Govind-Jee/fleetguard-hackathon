@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 5 - Real-Time Processing Pipeline  
+**CURRENT PHASE:** 6 - PostgreSQL 3NF + pgvector  
 
 ---
 
@@ -15,66 +15,65 @@
 - Phase 3 - Repository Foundation
 - Phase 4 - 100K Vehicle Simulator
 - Phase 4.1 - Simulator Acceptance Evidence Refinement
+- Phase 5 - Real-Time Processing Pipeline
+- Phase 5.1 - Real-Time Pipeline Evidence Audit and Acceptance Correction
+- Phase 5.2 - Redpanda Replay Evidence Finalization
+- Phase 5.3 - Verified Checkpoint Commit
+- Phase 6 - PostgreSQL 3NF Relational Domain + pgvector
 
 ### IN PROGRESS:
-Phase 5 evidence finalization
+Database normalization and scope consistency audit
 
 ### BLOCKERS:
 None
 
 ### NEXT STEP:
-Phase 6 - PostgreSQL 3NF relational schema and pgvector
+Phase 7 - Predictive Maintenance ML
 
 ---
 
-## Phase 5.2 Redpanda Replay Evidence Finalization Summary
+## Phase 6 Implementation & Evidence Summary
 
-### 1. Durable Message Replay Verified (REQ-008)
-- Script `scripts/verify_redpanda_replay.py` and integration test `tests/integration/test_redpanda_integration.py::test_redpanda_historical_replay`:
-  - Produced event `fcf82dc0-56c0-4690-af3b-abf66b265c6d` to `vehicle.telemetry.v1` (partition 12, offset 487).
-  - Consumer Group 1 read and committed offset + 1.
-  - Consumer Group 2 assigned offset 487 and replayed the exact event.
-  - Consumer Group 3 seek operation rewound to offset 487 and re-read the exact event.
-  - All 3 consumption passes verified 100% data integrity.
-- Status: **REQ-008 remains DONE** with concrete, verifiable empirical replay test logs.
+### 1. Authoritative 3NF Relational Schema (REQ-010, REQ-038)
+- Created 13 normalized relational domain tables and 1 vector table in PostgreSQL 16:
+  `tenants`, `fleets`, `depots`, `vehicle_models`, `vehicles`, `maintenance_types`, `maintenance_records`, `work_orders`, `alerts`, `users`, `roles`, `user_roles`, `audit_logs`, `diagnostic_signatures`.
+- Documented in `docs/database-design.md`:
+  - Mathematical 1NF, 2NF, 3NF normalization justifications.
+  - Prevention of update, insertion, and deletion anomalies (separation of specs in `vehicle_models`, service catalog in `maintenance_types`, RBAC in `user_roles`).
+  - Multi-tenant data isolation strategy via `tenant_id` foreign keys and indexed query paths.
+  - Full Mermaid ER Diagram with explicit cardinalities and relationships.
 
-### 2. Test Suite Reconciled (39 Tests Passing)
-- 32 Unit Tests (`test_simulator.py`: 14, `test_smoke.py`: 3, `test_stream_processor.py`: 15)
-- 7 Integration Tests (`test_pipeline_integration.py`: 5, `test_redpanda_integration.py`: 2)
-- Reconciled in `docs/stream_processing.md` and `docs/ACCEPTANCE_CHECKLIST.md` (REQ-028).
+### 2. pgvector Diagnostic Signatures & Cosine Similarity Search (REQ-012)
+- Enabled `vector` extension (v0.8.6) in PostgreSQL.
+- Implemented `diagnostic_signatures` table with 16-dimensional telemetry embeddings.
+- Created HNSW index `idx_diagnostic_signatures_hnsw` using `vector_cosine_ops` (`m=16, ef_construction=64`).
+- Seeded 6 reference failure modes with deterministic vectors:
+  `ENGINE_OVERHEAT`, `OIL_PRESSURE_CRITICAL_LOW`, `BATTERY_THERMAL_RUNAWAY_RISK`, `BATTERY_CELL_IMBALANCE`, `EXCESSIVE_VIBRATION`, `INVERTER_DEGRADATION`.
+- Verified nearest-neighbor retrieval using `<=>` cosine distance: query vector matched `ENGINE_OVERHEAT` with distance < 0.01 (similarity > 0.99) in under 1 ms.
 
----
+### 3. Empirical SQL Optimization with EXPLAIN (ANALYZE, BUFFERS) (REQ-015)
+- Evaluated high-concurrency dispatch query on 10,007 vehicles and 25,002 work orders (`scripts/sql_optimization_benchmark.py`).
+- **Baseline (Unoptimized)**: Bitmap Heap Scan on `work_orders` discarded 1,250 rows in memory, execution time 3.068 ms, cost 891.51.
+- **Optimized**: Created composite index `idx_work_orders_composite_dispatch (tenant_id, status, priority, scheduled_at)`:
+  - Eliminated 100% of memory filter discards (0 discarded rows).
+  - Reduced `work_orders` scan time by 57.3% (0.277 ms).
+  - Reduced total query cost by 35.0% (579.60).
+  - Reduced planning buffer hits by 64.1%.
+- Fully documented in `docs/sql-optimization.md`.
 
-## Phase 5.1 Evidence Audit & Acceptance Reconciliation Summary
+### 4. Migration Runner & Idempotency
+- Implemented `infra/database/migrate.py` managing migrations via transactional `schema_migrations`.
+- Applied migrations:
+  - `001_initial_relational_schema.sql`
+  - `002_pgvector_signatures.sql`
+  - `003_seed_dev_data.sql`
+- Verified strict idempotency: second pass runs zero statements and reports empty migration list.
 
-### 2. Alert Idempotency Audit Verified
-- Proven via dedicated unit test `test_duplicate_event_alert_and_state_idempotency` and integration test `test_worker_duplicate_suppression_and_no_second_alert`:
-  - When the exact same `event_id` is re-delivered:
-    - Deduplication (`CountingBloomFilter` + Tier-2 LRU/Redis) suppresses the duplicate early.
-    - Zero duplicate critical alerts are emitted on `vehicle.alerts.v1`.
-    - Zero duplicate state transitions occur in Redis `vehicle:state:{vin}`.
-    - Explicit count assertion verifies exactly 1 alert exists for that `event_id`.
-
-### 3. Critical Alert Count Audit (8 Alerts across 7 Events)
-- Fully documented mapping showing why 7 events produced 8 critical alerts:
-  - Event 0 (`vin_normal_ice`): 0 alerts
-  - Event 1 (`vin_fault_ice`): 4 distinct CRITICAL alerts (`ENGINE_OVERHEAT`, `OIL_PRESSURE_CRITICAL_LOW`, `DTC_CRITICAL_P0217`, `DTC_CRITICAL_P0524`)
-  - Event 2 (`vin_fault_bev`): 3 distinct CRITICAL alerts (`BATTERY_THERMAL_RUNAWAY_RISK`, `CRITICAL_LOW_SOC`, `DTC_CRITICAL_P0A80`)
-  - Event 3 (`vin_vib_hev`): 1 CRITICAL alert (`EXCESSIVE_VIBRATION`)
-  - Event 4 (`vin_ooo` seq 10): 0 alerts
-  - Event 5 (`duplicate_event`): 0 alerts (suppressed)
-  - Event 6 (`stale_event` seq 5): 0 alerts
-  - **Total**: $0 + 4 + 3 + 1 + 0 + 0 + 0 = 8$ distinct mechanical/electrical/thermal fault alerts.
-
-### 4. REQ-024 Latency Claim Reclassified to IN_PROGRESS
-- Functional smoke test latency (2.516 ms average, 8.189 ms P99) was generated on a 7-event functional test run.
-- To prevent conflating functional smoke tests with final-scale load testing, `REQ-024` status is set to `IN_PROGRESS` pending the final distributed load benchmark.
-- Evidence preserved explicitly as "Functional smoke-test latency".
-
-### 5. Explicit Performance Benchmark Tiers
-- **Functional Smoke Test**: Small representative event set latency (2.516 ms avg, 8.189 ms P99).
-- **Simulator Generation Benchmark**: Simulator-only generation throughput (~80,000 events/sec single-thread in memory).
-- **Final System Performance Benchmark**: End-to-end distributed 100,000+ events/sec benchmark across all layers (REQ-021: strictly `NOT_STARTED`).
+### 5. Automated Test Suite Expansion (53 Tests Passing, REQ-028)
+- Total tests expanded from 39 to 53 passing automated tests:
+  - Unit tests: 38 (including 6 new schema and migration verification tests in `test_database_schema.py`)
+  - Integration tests: 15 (including 8 new live PostgreSQL integration tests in `test_postgres_integration.py` verifying FK cascades, unique constraints, check constraints, pgvector search, and migration idempotency)
+- All 53 tests run and pass in 12.66s via pytest.
 
 ---
 

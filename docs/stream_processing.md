@@ -13,7 +13,7 @@
 
 ## 1. Architectural Overview
 
-FleetGuard Pulse implements an asynchronous, horizontally scalable streaming pipeline designed for high-throughput connected vehicle telemetry ingestion, safety-critical anomaly detection, and decoupled storage persistence.
+FleetGuard Pulse implements an asynchronous, horizontally scalable streaming pipeline designed for high-throughput connected vehicle telemetry ingestion, real-time vehicle health anomaly detection, and decoupled storage persistence.
 
 ```mermaid
 flowchart TD

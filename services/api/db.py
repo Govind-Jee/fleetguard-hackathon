@@ -73,6 +73,7 @@ def init_db_pools() -> None:
             database=settings.CLICKHOUSE_DB,
             connect_timeout=3,
             send_receive_timeout=5,
+            settings={"max_query_size": 10485760},
         )
         logger.info(
             "ClickHouse client connected on %s:%d (db=%s)",

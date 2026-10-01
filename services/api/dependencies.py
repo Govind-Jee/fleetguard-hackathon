@@ -31,6 +31,16 @@ def get_redis() -> redis.Redis:
     return get_redis_client()
 
 
+def get_ch():
+    """Dependency that yields the active ClickHouse client or raises DatabaseUnavailableError."""
+    from services.api.db import get_clickhouse_client
+    from services.api.exceptions import DatabaseUnavailableError
+    ch = get_clickhouse_client()
+    if ch is None:
+        raise DatabaseUnavailableError("ClickHouse")
+    return ch
+
+
 async def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),

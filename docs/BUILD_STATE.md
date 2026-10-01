@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 9 - React FleetGuard Pulse Dashboard  
+**CURRENT PHASE:** 10 - Historical Batch Analytics and Reliability Intelligence  
 
 ---
 
@@ -31,15 +31,19 @@
 - Phase 8.3 - Verified API/ML Serving Checkpoint
 - Phase 9 - React FleetGuard Pulse Dashboard
 - Phase 9.1 - UI Browser Acceptance and Credential Hygiene Audit
+- Phase 9.2 - Verified Dashboard Checkpoint Commit
+- Phase 10 - Historical Batch Analytics and Reliability Intelligence
+- Phase 10.1 - ClickHouse Analytics Semantic Consistency Audit
+- Phase 10.2 - Batch Analytics Acceptance Evidence Finalization
 
 ### IN PROGRESS:
-Dashboard checkpoint complete; remaining system acceptance work
+Analytics checkpoint complete; performance preparation
 
 ### BLOCKERS:
 None
 
 ### NEXT STEP:
-Phase 10 - Historical Batch Analytics and Reliability Intelligence
+Phase 11 - Distributed 100K/300K Performance Benchmark
 
 ---
 
@@ -141,8 +145,54 @@ Measured across 100 requests per endpoint (macOS Apple Silicon, local sequential
 - **Screenshot Evidence Catalog**: 9 high-resolution screenshots saved to `docs/screenshots/` (`01_fleet_overview.png` to `09_error_state.png`).
 - **Credential Hygiene Audit**: Complete repository scan verified zero hardcoded JWTs or secrets in tracked git repository. All authentication is environment-driven via `frontend/.env.example` and `scripts/generate_dev_token.py`.
 
+---
 
+## Phase 10 Implementation & Evidence Summary: Historical Batch Analytics and Reliability Intelligence
 
+### 1. Architectural Demarcation & Datastore Invariants
+Strict separation of concerns maintained per `docs/ARCHITECTURE_LOCK.md`:
+- **ClickHouse (`fleetguard_analytics.vehicle_telemetry`)**: Authoritative columnar analytical datastore for historical OLAP queries, fleet-level MTBF, fault distributions, temporal reliability trends, and degradation rankings across 10K+ assets.
+- **PostgreSQL 3NF**: Authoritative multi-tenant relational metadata (`tenants`, `fleets`, `vehicles`, `work_orders`, `users`). Scopes analytical queries by resolving tenant-authorized VIN lists before querying ClickHouse. Correlates completed maintenance work orders with historical trends.
+- **pgvector**: Diagnostic signature cosine distance similarity search (16-D).
+- **Redis 7**: Live hot CAN state cache and 120s sliding-window deduplication.
+- **Logistic Regression (`logreg-v1-purged`)**: Forward-looking 7-day failure risk estimation (unaffected by historical OLAP calculations).
+- **Redpanda**: Real-time event log and broker replay.
+
+### 2. Analytical Engine Architecture (`services/analytics/`)
+- `models.py`: Strongly validated Pydantic models with strict ISO 8601 parsing (`TimeWindow` ensures `start_time < end_time` and maximum 90-day analytical query window).
+- `queries.py`: Highly optimized ClickHouse OLAP queries utilizing `ReplacingMergeTree FINAL` and columnar aggregations:
+  - `FLEET_RELIABILITY_SUMMARY_SQL`: Computes monitored vehicle count, total events, critical/warning fault totals, and fault rate ($F / E$).
+  - `FAULT_FREQUENCY_SQL`: Unrolls DTC arrays via `arrayJoin(dtc_codes)` and correlates physical threshold breaches (`ENGINE_OVERHEAT`, `OIL_PRESSURE_CRITICAL_LOW`, etc.).
+  - `MTBF_SQL`: Evaluates window lag `lagInFrame(timestamp)` with a 30-minute (1,800s) debounce window to partition consecutive distinct failure events, computing empirical operating hours divided by distinct failure incidents.
+  - `RELIABILITY_TREND_DAY_SQL` & `RELIABILITY_TREND_WEEK_SQL`: Chronological time-series aggregations with event volume and fault rate.
+  - `DEGRADATION_RANKING_SQL`: Ranks top-N deteriorating assets using historical degradation score $S_{\text{deg}} \in [0, 100]$ computed from empirical telemetry signals prior to cutoff.
+- `service.py`: `BatchAnalyticsService` resolving tenant-authorized VINs from PostgreSQL, validating fleet ownership, applying query execution settings (`max_query_size: 10485760`), and correlating completed work orders with reliability trends.
+
+### 3. FastAPI Analytics API Endpoints (`services/api/routers/analytics.py`)
+- `GET /analytics/summary`: PostgreSQL 3NF operational summary (guarded by `ADMIN`, `DISPATCHER`).
+- `GET /analytics/reliability`: ClickHouse fleet reliability overview.
+- `GET /analytics/faults`: ClickHouse DTC and physical fault frequency breakdown.
+- `GET /analytics/mtbf`: ClickHouse empirical Mean Time Between Failures.
+- `GET /analytics/trends`: ClickHouse daily/weekly reliability time series with PostgreSQL work order correlation.
+- `GET /analytics/degradation`: ClickHouse asset degradation ranking.
+
+### 4. ClickHouse Analytical Performance Benchmark (`scripts/benchmark_clickhouse_analytics.py`)
+Measured over 20 iterations across 10,007 tenant-scoped vehicles on ClickHouse 24 (`vehicle_telemetry` table):
+- **Fleet Reliability Summary**: Mean: **54.67 ms** | p50: **50.88 ms** | p95: **96.97 ms**
+- **Fault Frequency Breakdown**: Mean: **134.54 ms** | p50: **106.88 ms** | p95: **422.00 ms**
+- **MTBF Metrics**: Mean: **128.68 ms** | p50: **114.61 ms** | p95: **225.61 ms**
+- **Reliability Daily Trend**: Mean: **90.36 ms** | p50: **56.34 ms** | p95: **275.31 ms**
+- **Vehicle Degradation Ranking**: Mean: **84.47 ms** | p50: **77.30 ms** | p95: **170.78 ms**
+- *Scope Note: ClickHouse analytical execution benchmark across 10K assets; distinct from distributed 100K events/sec ingestion benchmark (Phase 11).*
+
+### 5. Automated Verification & Security Evidence
+- **Backend Test Suite**: **136/136 tests passing** (`pytest tests/ -q` in 4.09s):
+  - 63 unit tests (including 10 analytics unit tests in `test_analytics.py`)
+  - 66 integration tests (including 7 ClickHouse OLAP tests in `test_clickhouse_analytics.py` and 6 security tests in `test_analytics_security.py`)
+  - 7 OpenAPI 3.1 contract tests in `test_api_contracts.py`
+- **Frontend Test Suite**: **22/22 tests passing** (`vitest run` in 1.70s) and production build succeeds cleanly (`npm run build` in 1.76s).
+- **Tenant Isolation**: Verified negative isolation—cross-tenant fleet filters return 404, queries strictly scope to vehicles owned by caller's tenant, and unauthorized tenants see 0 records.
+- **Deduplication Semantics**: Verified `ReplacingMergeTree FINAL` collapses identical duplicate events across multiple insertion batches on read.
 
 ---
 

@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 8 - FastAPI API and Security Layer  
+**CURRENT PHASE:** 9 - React FleetGuard Pulse Dashboard  
 
 ---
 
@@ -28,15 +28,18 @@
 - Phase 8 - FastAPI API Layer
 - Phase 8.1 - API Evidence and Contract-Test Audit
 - Phase 8.2 - ML Serving Feature-Parity Audit
+- Phase 8.3 - Verified API/ML Serving Checkpoint
+- Phase 9 - React FleetGuard Pulse Dashboard
+- Phase 9.1 - UI Browser Acceptance and Credential Hygiene Audit
 
 ### IN PROGRESS:
-API checkpoint complete; frontend preparation
+Dashboard checkpoint complete; remaining system acceptance work
 
 ### BLOCKERS:
 None
 
 ### NEXT STEP:
-Phase 9 - React FleetGuard Pulse Dashboard
+Phase 10 - Historical Batch Analytics and Reliability Intelligence
 
 ---
 
@@ -96,6 +99,48 @@ Measured across 100 requests per endpoint (macOS Apple Silicon, local sequential
 - When historical or live telemetry is absent, features are cleanly set to `None`, allowing the scikit-learn pipeline's `SimpleImputer(strategy="median")` to substitute empirical training-set medians.
 - Enforced strict vehicle-type powertrain masking (ICE vs BEV vs HEV) and schema ordering guards.
 - Added comprehensive train/serve parity suite in `tests/integration/test_ml_serving_consistency.py` (6 tests).
+
+---
+
+## Phase 9 Implementation & Evidence Summary: React Dashboard
+
+### 1. Locked Stack & Architecture Compliance
+- Implemented React 18 single-page application in `frontend/` powered by Vite, Tailwind CSS, Leaflet (`react-leaflet`), and Lucide icons.
+- Strictly adheres to `docs/ARCHITECTURE_LOCK.md`: no additional brokers, databases, or frameworks added.
+- Development proxy configured in `vite.config.ts` mapping `/api` to `http://localhost:8000` and `/ws` to `ws://localhost:8000`.
+
+### 2. Implemented Views & Subsystems
+- **Fleet Overview (`/`)**: Fleet division switcher, 4 KPI cards (Monitored Vehicles, Availability %, Critical Alerts, High-Risk Assets), interactive Leaflet map with health-status colored pin markers, and a filterable/paginated vehicle table (by fleet, powertrain, and operational status).
+- **Vehicle Details (`/vehicles/:vin`)**: Authoritative 3NF relational specifications (engine, battery, depot, fleet), live CAN-bus telemetry gauge card (speed, vibration, odometer, engine RPM, coolant temp, oil pressure, SOC %, pack voltage, cell temp delta), active DTC trouble codes, sequence number, GPS coordinates, and historical vehicle alert log.
+- **Predictive Maintenance Risk Panel**: Prominent estimated 7-day maintenance risk probability (e.g., 38.4%), decision threshold marker (35%), model version (`logreg-v1-purged`), top risk factor contributions with z-scores/coefficients, protective factors, and mandatory probabilistic disclaimer notice. Integrated with 3NF maintenance work order dispatch modal (`POST /maintenance/work-orders`).
+- **pgvector Diagnostic Signature Search (`/diagnostics`)**: 16-D cosine similarity nearest-neighbor search with 5 pre-loaded failure signature presets (engine overheat, inverter stress, bearing vibration, battery degradation, nominal baseline) and raw 16-D JSON vector input.
+- **Live Ingestion WebSocket Monitor (`/alerts`)**: Reconnecting WebSocket stream hooked to `/ws/alerts` with bounded 50-event buffer, sliding set deduplication, 25s heartbeat PING/PONG, global dismissible `LiveAlertBanner`, and historical PostgreSQL alerts table.
+
+### 3. Automated Test Evidence
+- **Frontend Unit & Component Tests (`vitest`)**: All 6 test suites and 22 tests pass cleanly:
+  - `Badge.test.tsx` (6 tests)
+  - `PredictiveRiskPanel.test.tsx` (5 tests)
+  - `VehicleTelemetryCard.test.tsx` (3 tests)
+  - `WorkOrderModal.test.tsx` (3 tests)
+  - `ApiClient.test.ts` (3 tests)
+  - `WebSocketDeduplication.test.ts` (2 tests)
+- **Frontend Production Build**: `npm run build` succeeds cleanly in 1.63s (`dist/index.html`, `dist/assets/index-DQB8LRr6.css`, `dist/assets/index-Cn3Yt59K.js`).
+- **Backend Test Suite (`pytest`)**: All 113 backend unit, integration, and contract tests pass with 100% success rate (`pytest tests/ -q` in 3.65s).
+
+### 4. Phase 9.1 Browser Acceptance Walkthrough & Audit Results
+- **Automated Playwright Walkthrough (`scripts/browser_acceptance_walkthrough.py`)**: All 8 user journeys verified against live FastAPI and Vite servers:
+  - **Fleet Overview (`/`)**: Real KPIs loaded from backend (10,003 monitored vehicles, 90.0% availability, 1 active critical alert, 1 high-risk asset). Leaflet map rendered with 25 vehicle markers. Inventory table loaded 20 vehicles on page 1. First VIN: `1HGCR2F83HA000001`.
+  - **Vehicle Details (`/vehicles/:vin`)**: Authoritative 3NF relational specifications and telemetry components loaded.
+  - **Predictive Risk**: 7-day failure risk probability (2.0%), advisory threshold (35%), model version `logreg-v1-purged`, and real backend disclaimer displayed.
+  - **pgvector Diagnostics (`/diagnostics`)**: Executed 16-D nearest-neighbor cosine search returning `EXCESSIVE_VIBRATION` (31.0% match).
+  - **Alerts & Real-Time Push (`/alerts`)**: Verified `STREAMING ACTIVE` WebSocket status. Broadcasted critical alert (`COOLANT_THERMAL_RUNAWAY`, VIN `1HGCR2F83HA000001`) via backend path; connected browser received alert in real time without page refresh, rendering `LiveAlertBanner`.
+  - **Alert Direct Navigation**: Clicking banner navigated directly to `/vehicles/1HGCR2F83HA000001`.
+  - **3NF Work Order Persistence**: Dispatched work order via modal (priority `HIGH`), generated UUID `fb20f3a8-3279-4787-abdb-4b6243080e8f`, verified directly in PostgreSQL `work_orders` table (`status=PENDING`, `priority=HIGH`).
+  - **Responsive Layout**: Tablet viewport (768x1024) verified: body `scrollWidth = 768px` (zero horizontal overflow).
+  - **Error Handling**: Graceful 404 alert rendered for `/vehicles/VIN_NONEXISTENT_9999`.
+- **Screenshot Evidence Catalog**: 9 high-resolution screenshots saved to `docs/screenshots/` (`01_fleet_overview.png` to `09_error_state.png`).
+- **Credential Hygiene Audit**: Complete repository scan verified zero hardcoded JWTs or secrets in tracked git repository. All authentication is environment-driven via `frontend/.env.example` and `scripts/generate_dev_token.py`.
+
 
 
 

@@ -37,7 +37,8 @@ async def get_similar_diagnostics(
     conn: psycopg2.extensions.connection = Depends(get_db),
 ):
     try:
-        parsed_vector = [float(x.strip()) for x in vector.split(",") if x.strip()]
+        cleaned = vector.strip("[]() \t\n")
+        parsed_vector = [float(x.strip()) for x in cleaned.split(",") if x.strip()]
     except Exception as e:
         raise InvalidInputError(
             message="Vector parameter must be a valid comma-separated list of 16 floating-point numbers",

@@ -128,3 +128,33 @@ async def websocket_alerts_endpoint(
     except Exception as e:
         logger.error("WebSocket unhandled exception: %s", e)
         await ws_manager.disconnect(websocket, tenant_id)
+
+
+@router.post("/ws/broadcast")
+async def broadcast_alert_endpoint(alert_payload: dict):
+    """
+    Broadcasts a critical alert frame directly to active WebSocket connections.
+    Used by streaming pipeline workers and acceptance test injectors.
+    """
+    inner_alert = alert_payload.get("alert", alert_payload)
+    tenant_id = (
+        alert_payload.get("tenant_id")
+        or inner_alert.get("tenant_id")
+        or "a0000000-0000-0000-0000-000000000001"
+    )
+
+    if alert_payload.get("type") == "CRITICAL_ALERT":
+        frame = alert_payload
+    else:
+        frame = {
+            "type": "CRITICAL_ALERT",
+            "alert": inner_alert,
+        }
+
+    await ws_manager.broadcast_to_tenant(tenant_id, frame)
+    return {
+        "status": "BROADCASTED",
+        "tenant_id": tenant_id,
+        "active_clients": ws_manager.active_count_for_tenant(tenant_id),
+    }
+

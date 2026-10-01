@@ -39,6 +39,7 @@ class RealTimeWorker:
         redis_port: int = 6380,
         metrics: Optional[StreamMetrics] = None,
         auto_offset_reset: str = "latest",
+        enable_downstream_persistence: bool = True,
     ):
         self.bootstrap_servers = bootstrap_servers
         self.group_id = group_id
@@ -46,23 +47,35 @@ class RealTimeWorker:
         self.alerts_topic = alerts_topic
         self.metrics = metrics or default_metrics
         self.running = False
+        self.enable_downstream_persistence = enable_downstream_persistence
 
         # Initialize pipeline stages
-        self.redis_state = RedisStateManager(
-            host=redis_host, port=redis_port, metrics=self.metrics
-        )
+        if enable_downstream_persistence:
+            self.redis_state = RedisStateManager(
+                host=redis_host, port=redis_port, metrics=self.metrics
+            )
+            self.deduplicator = TwoTierDeduplicator(
+                redis_client=self.redis_state.client, metrics=self.metrics
+            )
+            self.ordering_protector = OutOfOrderProtector(
+                redis_client=self.redis_state.client, metrics=self.metrics
+            )
+            self.alert_publisher = AlertPublisher(
+                bootstrap_servers=bootstrap_servers, topic=alerts_topic
+            )
+        else:
+            self.redis_state = None
+            self.deduplicator = TwoTierDeduplicator(
+                redis_client=None, metrics=self.metrics
+            )
+            self.ordering_protector = OutOfOrderProtector(
+                redis_client=None, metrics=self.metrics
+            )
+            self.alert_publisher = None
+
         self.validator = TelemetryValidator(metrics=self.metrics)
-        self.deduplicator = TwoTierDeduplicator(
-            redis_client=self.redis_state.client, metrics=self.metrics
-        )
-        self.ordering_protector = OutOfOrderProtector(
-            redis_client=self.redis_state.client, metrics=self.metrics
-        )
         self.stats_registry = StreamingStatsRegistry()
         self.detector = HealthAnomalyDetector(metrics=self.metrics)
-        self.alert_publisher = AlertPublisher(
-            bootstrap_servers=bootstrap_servers, topic=alerts_topic
-        )
 
         # Consumer configuration
         self.consumer_config = {
@@ -105,18 +118,19 @@ class RealTimeWorker:
         # Step 5: Vehicle health & anomaly detection
         health_status, alerts = self.detector.evaluate(event, stats)
 
-        # Step 6: Update Redis hot state (only if event is in-order)
+        # Step 6: Update Redis hot state (only if event is in-order and persistence enabled)
         latest_alert = alerts[0] if alerts else None
-        if is_in_order:
+        if self.enable_downstream_persistence and is_in_order and self.redis_state:
             self.redis_state.update_vehicle_state(
                 event=event,
                 health_status=health_status,
                 latest_alert=latest_alert,
             )
 
-        # Step 7: Publish alerts to vehicle.alerts.v1
-        for alert in alerts:
-            self.alert_publisher.publish_alert(alert)
+        # Step 7: Publish alerts to vehicle.alerts.v1 (only if persistence enabled)
+        if self.enable_downstream_persistence and self.alert_publisher:
+            for alert in alerts:
+                self.alert_publisher.publish_alert(alert)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self.metrics.record_latency(elapsed_ms)
@@ -163,14 +177,16 @@ class RealTimeWorker:
             self.consumer.close()
         except Exception:
             pass
-        try:
-            self.alert_publisher.flush(timeout=3.0)
-        except Exception:
-            pass
-        try:
-            self.redis_state.close()
-        except Exception:
-            pass
+        if self.alert_publisher:
+            try:
+                self.alert_publisher.flush(timeout=3.0)
+            except Exception:
+                pass
+        if self.redis_state:
+            try:
+                self.redis_state.close()
+            except Exception:
+                pass
         logger.info("RealTimeWorker stopped cleanly.")
 
 

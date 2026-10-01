@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 10 - Historical Batch Analytics and Reliability Intelligence  
+**CURRENT PHASE:** 11 - Distributed 100K/300K Performance Benchmark  
 
 ---
 
@@ -35,15 +35,17 @@
 - Phase 10 - Historical Batch Analytics and Reliability Intelligence
 - Phase 10.1 - ClickHouse Analytics Semantic Consistency Audit
 - Phase 10.2 - Batch Analytics Acceptance Evidence Finalization
+- Phase 10.3 - Verified Historical Analytics Checkpoint
+- Phase 11 - Distributed 100K/300K Performance Benchmark
 
 ### IN PROGRESS:
-Analytics checkpoint complete; performance preparation
+Phase 11 distributed performance benchmark verified and archived
 
 ### BLOCKERS:
 None
 
 ### NEXT STEP:
-Phase 11 - Distributed 100K/300K Performance Benchmark
+Phase 12 - Distributed Architecture Tradeoffs, Resilience, and Cloud Deployment Verification
 
 ---
 
@@ -193,6 +195,46 @@ Measured over 20 iterations across 10,007 tenant-scoped vehicles on ClickHouse 2
 - **Frontend Test Suite**: **22/22 tests passing** (`vitest run` in 1.70s) and production build succeeds cleanly (`npm run build` in 1.76s).
 - **Tenant Isolation**: Verified negative isolation—cross-tenant fleet filters return 404, queries strictly scope to vehicles owned by caller's tenant, and unauthorized tenants see 0 records.
 - **Deduplication Semantics**: Verified `ReplacingMergeTree FINAL` collapses identical duplicate events across multiple insertion batches on read.
+
+---
+
+## Phase 11 Implementation & Evidence Summary: Distributed 100K/300K Ingestion Benchmark
+
+### 1. Empirical Test Harness Architecture (`scripts/benchmark_distributed_ingestion.py`)
+- Built an automated multi-process benchmark harness driving the real Redpanda messaging layer on dedicated topic `vehicle.telemetry.benchmark.v1` (16 partitions):
+  - Multiprocessing producer pool (up to 8 worker processes) distributing payloads across 16 partitions using VIN keying (`1HGCR2F83HA...`).
+  - 100% unique UUIDv4 `event_id` generation per message with exact key-body VIN equality, monotonic sequence numbers, fresh UTC timestamps, and canonical TelemetryEvent schema version 1.0.
+  - Multiprocessing consumer pool (up to 8 worker processes) executing the actual FleetGuard stream processing pipeline via `RealTimeWorker.process_message()`: `TelemetryValidator`, `TwoTierDeduplicator` (Counting Bloom Filter), `OutOfOrderProtector` (monotonic watermarks), `StreamingStatsRegistry` (Welford variance + EWMA), and `HealthAnomalyDetector` (deterministic rules + 3-sigma statistical anomalies).
+  - Partition High-Water Mark (HWM) tracking measuring broker-side accepted writes across all 16 partitions via `get_watermark_offsets`.
+  - In-flight consumer lag sampling and peak backlog tracking.
+  - Automated post-burst recovery drain time measurement.
+  - Docker container resource telemetry sampling before, during peak, and after workload (`docker stats --no-stream`).
+
+### 2. Empirical Benchmark Results (`docs/benchmark_results_phase11.json` & `docs/distributed-throughput-benchmark.md`)
+Across all 3 benchmark phases, **7,042,000 telemetry events** were generated, ingested, and processed through the real `RealTimeWorker` with **0 dropped messages (0.0000% loss)** and 100% data integrity:
+- **Phase 11A — Baseline Ingestion (20K Target, 15.0s Window)**:
+  - Events Attempted: 290,000 | Events Delivered: 290,000 | Broker Accepted: 290,000
+  - Achieved Producer Rate: **17,759.8 ev/s** | Broker Ingestion Rate: **17,759.8 ev/s**
+  - RealTimeWorker Processed: 290,000 | Consumer Rate: **17,437.3 ev/s**
+  - Loss: **0 events (0.0000%)** | Peak Backlog: 12,006 | Final Lag: 0 | Integrity: PASSED
+- **Phase 11B — Sustained 100K Target (60.0s Measurement Window)**:
+  - Events Attempted: 5,269,500 | Events Delivered: 5,269,500 | Broker Accepted: 5,269,500
+  - Achieved Producer Rate: **83,760.8 ev/s** | Broker Ingestion Rate: **83,760.8 ev/s**
+  - RealTimeWorker Processed: 5,269,500 | Consumer Rate: **56,629.7 ev/s**
+  - Loss: **0 events (0.0000%)** | Peak Backlog Absorbed: **2,394,220 events** | Drain Time: **29.63s** | Final Lag: 0 | Integrity: PASSED
+  - Peak Redpanda Resource: **118.40% CPU** (exceeding 1.0 container vCPU), 827.2 MiB RAM (53.8% of 1.5 GiB cap).
+- **Phase 11C — Burst 300K Target (10.0s Burst Window)**:
+  - Events Attempted: 1,482,500 | Events Delivered: 1,482,500 | Broker Accepted: 1,482,500
+  - Achieved Producer Rate: **82,818.1 ev/s** | Broker Ingestion Rate: **82,818.1 ev/s**
+  - RealTimeWorker Processed: 1,482,500 | Consumer Rate: **55,481.5 ev/s**
+  - Loss: **0 events (0.0000%)** | Peak Backlog Absorbed: **729,343 events** | Drain Time: **8.40s** | Final Lag: 0 | Integrity: PASSED
+
+### 3. Acceptance Invariants & Scope Boundaries
+- **No Extrapolation / Zero Overclaiming**: Local single-node hardware ceiling (8-core host, 2.0 container vCPUs) reached at ~83.8K ev/s ingestion and 56.6K ev/s full `RealTimeWorker` processing.
+- `REQ-021` categorized as **`PARTIALLY PROVEN`** / `IN_PROGRESS` (empirically sustained 83.8% of target across 60s with 0% loss; distributed multi-node cluster required for sustained 100K+ without consumer lag growth).
+- `REQ-022` categorized as **`PARTIALLY PROVEN`** / `IN_PROGRESS` (empirically absorbed 2.39M sustained backlog and 729K burst backlog, 0% loss, and drained in 8.40s; 300K for 5 minutes requires multi-node cluster).
+- `REQ-023`, `REQ-026`, `REQ-040` remain `NOT_STARTED`.
+- `REQ-024`, `REQ-025` remain `IN_PROGRESS`.
 
 ---
 

@@ -1,0 +1,595 @@
+{
+  "timestamp": "2026-10-01T19:33:59.015826+00:00",
+  "environment": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "cpu_cores": 8,
+    "python_version": "3.11.9",
+    "redpanda_brokers": "localhost:9092",
+    "topic": "vehicle.telemetry.benchmark.v1",
+    "partitions": 16
+  },
+  "phases": {
+    "baseline": {
+      "phase": "BASELINE",
+      "target_rate_ev_s": 20000.0,
+      "configured_duration_s": 15.0,
+      "actual_producer_duration_s": 16.33,
+      "total_benchmark_duration_s": 16.63,
+      "producers_count": 4,
+      "consumers_count": 4,
+      "producer_metrics": {
+        "events_attempted": 290000,
+        "events_delivered": 290000,
+        "events_failed": 0,
+        "unflushed_events": 0,
+        "delivery_rate_ev_s": 17759.8
+      },
+      "broker_metrics": {
+        "topic": "vehicle.telemetry.benchmark.v1",
+        "num_partitions": 16,
+        "initial_total_hwm": 0,
+        "final_total_hwm": 290000,
+        "accepted_events": 290000,
+        "broker_rate_ev_s": 17759.8,
+        "per_partition_deltas": {
+          "0": 18212,
+          "1": 18212,
+          "2": 18212,
+          "3": 18212,
+          "4": 18212,
+          "5": 18212,
+          "6": 18212,
+          "7": 18212,
+          "8": 18038,
+          "9": 18038,
+          "10": 18038,
+          "11": 18038,
+          "12": 18038,
+          "13": 18038,
+          "14": 18038,
+          "15": 18038
+        }
+      },
+      "consumer_metrics": {
+        "group_id": "bench-baseline-7d9b26ef",
+        "processing_path": "RealTimeWorker(process_message) -> TelemetryValidator, TwoTierDeduplicator, OutOfOrderProtector, StreamingStatsRegistry, HealthAnomalyDetector",
+        "events_consumed": 290000,
+        "events_processed": 290000,
+        "events_duplicate": 0,
+        "events_invalid": 0,
+        "key_body_mismatches": 0,
+        "consumer_errors": 0,
+        "processing_rate_ev_s": 17437.3
+      },
+      "lag_metrics": {
+        "lag_pre_test": 0,
+        "peak_backlog": 12006,
+        "lag_after_producer_stop": 0,
+        "final_lag": 0,
+        "recovery_time_s": 0.01
+      },
+      "integrity": {
+        "passed": true,
+        "failures": [],
+        "events_lost": 0,
+        "loss_percentage": 0.0
+      },
+      "container_resources": {
+        "pre_test": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.11%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "0.02%",
+            "mem_usage": "38.93MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "0.37%",
+            "mem_usage": "75.87MiB / 1GiB",
+            "mem_perc": "7.41%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "46.46%",
+            "mem_usage": "1.064GiB / 1.5GiB",
+            "mem_perc": "70.93%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "0.45%",
+            "mem_usage": "823MiB / 1.5GiB",
+            "mem_perc": "53.58%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.02%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "0.47%",
+            "mem_usage": "10.67MiB / 3.828GiB",
+            "mem_perc": "0.27%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "5.52%",
+            "mem_usage": "660.8MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        },
+        "peak": {
+          "fleetguard-redis": {
+            "cpu_perc": "2.40%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "38.93MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "57.85%",
+            "mem_usage": "75.89MiB / 1GiB",
+            "mem_perc": "7.41%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "108.23%",
+            "mem_usage": "1.064GiB / 1.5GiB",
+            "mem_perc": "70.91%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "16.91%",
+            "mem_usage": "823MiB / 1.5GiB",
+            "mem_perc": "53.58%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "3.87%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "2.77%",
+            "mem_usage": "10.67MiB / 3.828GiB",
+            "mem_perc": "0.27%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "0.71%",
+            "mem_usage": "660.9MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        },
+        "post_test": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.22%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "3.82%",
+            "mem_usage": "38.95MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "1.02%",
+            "mem_usage": "75.87MiB / 1GiB",
+            "mem_perc": "7.41%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "4.38%",
+            "mem_usage": "1022MiB / 1.5GiB",
+            "mem_perc": "66.50%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "5.03%",
+            "mem_usage": "823.2MiB / 1.5GiB",
+            "mem_perc": "53.59%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.37%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "1.95%",
+            "mem_usage": "13.18MiB / 3.828GiB",
+            "mem_perc": "0.34%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "0.55%",
+            "mem_usage": "660.8MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        }
+      }
+    },
+    "sustained_100k": {
+      "phase": "SUSTAINED_100K",
+      "target_rate_ev_s": 100000.0,
+      "configured_duration_s": 60.0,
+      "actual_producer_duration_s": 62.91,
+      "total_benchmark_duration_s": 93.05,
+      "producers_count": 8,
+      "consumers_count": 8,
+      "producer_metrics": {
+        "events_attempted": 5269500,
+        "events_delivered": 5269500,
+        "events_failed": 0,
+        "unflushed_events": 0,
+        "delivery_rate_ev_s": 83760.8
+      },
+      "broker_metrics": {
+        "topic": "vehicle.telemetry.benchmark.v1",
+        "num_partitions": 16,
+        "initial_total_hwm": 0,
+        "final_total_hwm": 5269500,
+        "accepted_events": 5269500,
+        "broker_rate_ev_s": 83760.8,
+        "per_partition_deltas": {
+          "0": 330931,
+          "1": 330931,
+          "2": 330929,
+          "3": 330929,
+          "4": 330929,
+          "5": 330929,
+          "6": 330931,
+          "7": 330931,
+          "8": 327756,
+          "9": 327756,
+          "10": 327759,
+          "11": 327759,
+          "12": 327759,
+          "13": 327759,
+          "14": 327756,
+          "15": 327756
+        }
+      },
+      "consumer_metrics": {
+        "group_id": "bench-sustained_100k-deea39b2",
+        "processing_path": "RealTimeWorker(process_message) -> TelemetryValidator, TwoTierDeduplicator, OutOfOrderProtector, StreamingStatsRegistry, HealthAnomalyDetector",
+        "events_consumed": 5269500,
+        "events_processed": 5269500,
+        "events_duplicate": 0,
+        "events_invalid": 0,
+        "key_body_mismatches": 0,
+        "consumer_errors": 0,
+        "processing_rate_ev_s": 56629.7
+      },
+      "lag_metrics": {
+        "lag_pre_test": 0,
+        "peak_backlog": 2394220,
+        "lag_after_producer_stop": 2358500,
+        "final_lag": 0,
+        "recovery_time_s": 29.63
+      },
+      "integrity": {
+        "passed": true,
+        "failures": [],
+        "events_lost": 0,
+        "loss_percentage": 0.0
+      },
+      "container_resources": {
+        "pre_test": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.34%",
+            "mem_usage": "3.395MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "1.90%",
+            "mem_usage": "38.96MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "1.62%",
+            "mem_usage": "75.86MiB / 1GiB",
+            "mem_perc": "7.41%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "4.41%",
+            "mem_usage": "1010MiB / 1.5GiB",
+            "mem_perc": "65.78%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "0.93%",
+            "mem_usage": "823.4MiB / 1.5GiB",
+            "mem_perc": "53.61%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.22%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "1.11%",
+            "mem_usage": "10.92MiB / 3.828GiB",
+            "mem_perc": "0.28%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "0.60%",
+            "mem_usage": "660.8MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        },
+        "peak": {
+          "fleetguard-redis": {
+            "cpu_perc": "1.63%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "38.93MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "123.02%",
+            "mem_usage": "217MiB / 1GiB",
+            "mem_perc": "21.20%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "114.48%",
+            "mem_usage": "1011MiB / 1.5GiB",
+            "mem_perc": "65.85%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "118.40%",
+            "mem_usage": "827.2MiB / 1.5GiB",
+            "mem_perc": "53.85%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "1.69%",
+            "mem_usage": "10.67MiB / 3.828GiB",
+            "mem_perc": "0.27%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "1.20%",
+            "mem_usage": "660.8MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        },
+        "post_test": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.32%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "38.95MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "0.91%",
+            "mem_usage": "76.2MiB / 1GiB",
+            "mem_perc": "7.44%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "4.30%",
+            "mem_usage": "1.055GiB / 1.5GiB",
+            "mem_perc": "70.36%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "1.09%",
+            "mem_usage": "824.4MiB / 1.5GiB",
+            "mem_perc": "53.67%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "1.01%",
+            "mem_usage": "10.92MiB / 3.828GiB",
+            "mem_perc": "0.28%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "0.45%",
+            "mem_usage": "660.8MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        }
+      }
+    },
+    "burst_300k": {
+      "phase": "BURST_300K",
+      "target_rate_ev_s": 300000.0,
+      "configured_duration_s": 10.0,
+      "actual_producer_duration_s": 17.9,
+      "total_benchmark_duration_s": 26.72,
+      "producers_count": 8,
+      "consumers_count": 8,
+      "producer_metrics": {
+        "events_attempted": 1482500,
+        "events_delivered": 1482500,
+        "events_failed": 0,
+        "unflushed_events": 0,
+        "delivery_rate_ev_s": 82818.1
+      },
+      "broker_metrics": {
+        "topic": "vehicle.telemetry.benchmark.v1",
+        "num_partitions": 16,
+        "initial_total_hwm": 0,
+        "final_total_hwm": 1482500,
+        "accepted_events": 1482500,
+        "broker_rate_ev_s": 82818.1,
+        "per_partition_deltas": {
+          "0": 93102,
+          "1": 93102,
+          "2": 93097,
+          "3": 93097,
+          "4": 93097,
+          "5": 93097,
+          "6": 93102,
+          "7": 93102,
+          "8": 92212,
+          "9": 92212,
+          "10": 92214,
+          "11": 92214,
+          "12": 92214,
+          "13": 92214,
+          "14": 92212,
+          "15": 92212
+        }
+      },
+      "consumer_metrics": {
+        "group_id": "bench-burst_300k-c24ae8e2",
+        "processing_path": "RealTimeWorker(process_message) -> TelemetryValidator, TwoTierDeduplicator, OutOfOrderProtector, StreamingStatsRegistry, HealthAnomalyDetector",
+        "events_consumed": 1482500,
+        "events_processed": 1482500,
+        "events_duplicate": 0,
+        "events_invalid": 0,
+        "key_body_mismatches": 0,
+        "consumer_errors": 0,
+        "processing_rate_ev_s": 55481.5
+      },
+      "lag_metrics": {
+        "lag_pre_test": 0,
+        "peak_backlog": 729343,
+        "lag_after_producer_stop": 729343,
+        "final_lag": 0,
+        "recovery_time_s": 8.4
+      },
+      "integrity": {
+        "passed": true,
+        "failures": [],
+        "events_lost": 0,
+        "loss_percentage": 0.0
+      },
+      "container_resources": {
+        "pre_test": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.17%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "5.54%",
+            "mem_usage": "39.17MiB / 1GiB",
+            "mem_perc": "3.83%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "0.57%",
+            "mem_usage": "75.96MiB / 1GiB",
+            "mem_perc": "7.42%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "3.62%",
+            "mem_usage": "1.047GiB / 1.5GiB",
+            "mem_perc": "69.78%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "0.74%",
+            "mem_usage": "824.4MiB / 1.5GiB",
+            "mem_perc": "53.67%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "0.62%",
+            "mem_usage": "10.92MiB / 3.828GiB",
+            "mem_perc": "0.28%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "4.07%",
+            "mem_usage": "660.9MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        },
+        "peak": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.21%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "0.12%",
+            "mem_usage": "38.93MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "87.99%",
+            "mem_usage": "76.78MiB / 1GiB",
+            "mem_perc": "7.50%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "6.21%",
+            "mem_usage": "1020MiB / 1.5GiB",
+            "mem_perc": "66.41%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "4.49%",
+            "mem_usage": "825.1MiB / 1.5GiB",
+            "mem_perc": "53.72%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "16.28%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "0.82%",
+            "mem_usage": "10.67MiB / 3.828GiB",
+            "mem_perc": "0.27%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "7.13%",
+            "mem_usage": "663.2MiB / 3.828GiB",
+            "mem_perc": "16.92%"
+          }
+        },
+        "post_test": {
+          "fleetguard-redis": {
+            "cpu_perc": "0.32%",
+            "mem_usage": "3.391MiB / 512MiB",
+            "mem_perc": "0.66%"
+          },
+          "fleetguard-postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "38.93MiB / 1GiB",
+            "mem_perc": "3.80%"
+          },
+          "fleetguard-mongodb": {
+            "cpu_perc": "0.87%",
+            "mem_usage": "75.97MiB / 1GiB",
+            "mem_perc": "7.42%"
+          },
+          "fleetguard-clickhouse": {
+            "cpu_perc": "2.88%",
+            "mem_usage": "1018MiB / 1.5GiB",
+            "mem_perc": "66.25%"
+          },
+          "fleetguard-redpanda": {
+            "cpu_perc": "8.14%",
+            "mem_usage": "825.6MiB / 1.5GiB",
+            "mem_perc": "53.75%"
+          },
+          "reachinbox_postgres": {
+            "cpu_perc": "0.00%",
+            "mem_usage": "11.32MiB / 3.828GiB",
+            "mem_perc": "0.29%"
+          },
+          "reachinbox_redis": {
+            "cpu_perc": "0.91%",
+            "mem_usage": "10.67MiB / 3.828GiB",
+            "mem_perc": "0.27%"
+          },
+          "reachinbox_elasticsearch": {
+            "cpu_perc": "0.62%",
+            "mem_usage": "660.9MiB / 3.828GiB",
+            "mem_perc": "16.86%"
+          }
+        }
+      }
+    }
+  }
+}

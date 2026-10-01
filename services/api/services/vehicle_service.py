@@ -284,7 +284,8 @@ class VehicleService:
                 longitude=float(raw_hot["longitude"]),
             )
 
-        current_health = raw_hot.get("health_status", "NOMINAL")
+        raw_status = raw_hot.get("health_status", "NOMINAL")
+        current_health = "NOMINAL" if raw_status in ("NORMAL", "NOMINAL") else raw_status
         if unack_count > 0 and current_health == "NOMINAL":
             current_health = "WARNING"
 

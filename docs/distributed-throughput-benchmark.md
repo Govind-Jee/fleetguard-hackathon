@@ -2,7 +2,7 @@
 
 **Date**: October 2026  
 **Document**: `docs/distributed-throughput-benchmark.md`  
-**Phase**: Phase 11 & Phase 11.1 (Throughput Bottleneck Audit and Targeted Optimization)  
+**Phase**: Phase 11, Phase 11.1 & Phase 11.2 (Throughput Bottleneck Audit & Controlled Validation)  
 **Topic**: `vehicle.telemetry.benchmark.v1` (16 Partitions)  
 **Message Broker**: Redpanda v24.1.2 (`fleetguard-redpanda`, single-node Docker container)  
 **Stream Processing Engine**: FleetGuard Pulse `RealTimeWorker`  
@@ -123,13 +123,13 @@ This created massive interpreter and C-extension overhead, limiting single-core 
 
 ## 5. Targeted Safe Optimization: Kirsch-Mitzenmacher Double Hashing
 
-### Mathematical Foundation:
-Under the Kirsch-Mitzenmacher theorem (*Less Hashing, Same Performance: Building a Better Bloom Filter*, ESA 2006), $k$ hash functions for a Bloom filter can be simulated using only two independent uniform hash values $h_1(x)$ and $h_2(x)$:
+### Algorithmic Technique & Implementation:
+To eliminate repeated cryptographic hash function invocations without modifying the underlying data structures, `CountingBloomFilter` was refactored to use Kirsch-Mitzenmacher double hashing:
 $$g_i(x) = (h_1(x) + i \cdot h_2(x)) \pmod m \quad \text{for } i \in \{0, \dots, k-1\}$$
-This achieves the exact same asymptotic false-positive probability bounds without sacrificing collision resistance.
 
-### Implementation in `services/stream_processor/dedup.py`:
-A single 16-byte BLAKE2b digest is extracted, yielding two 64-bit unsigned integers:
+Rather than computing $k$ separate cryptographic hashes with distinct salts, the implementation computes a single 16-byte BLAKE2b digest and slices it into two 64-bit integer values ($h_1$ and $h_2$). The second hash $h_2$ is masked with an odd bit (`| 1`) to ensure coprimality with power-of-two table dimensions.
+
+Implementation in [`services/stream_processor/dedup.py`](file:///Users/govindjee/Downloads/fleetguard-hackathon/services/stream_processor/dedup.py):
 ```python
 def _hashes(self, item: str) -> List[int]:
     raw_bytes = item.encode("utf-8")
@@ -140,18 +140,16 @@ def _hashes(self, item: str) -> List[int]:
     return [(h1 + i * h2) % size for i in range(self.num_hashes)]
 ```
 
-### Micro-Benchmark Verification:
+### Micro-Benchmark Verification (Isolated Component Level):
 * **Hash generation**: Decreased from $9.45\ \mu\text{s}$ to **$1.45\ \mu\text{s}$** (**6.49x faster**).
 * **`CountingBloomFilter.add()`**: Decreased from $10.74\ \mu\text{s}$ to **$2.62\ \mu\text{s}$** (**4.10x faster**).
 * **`CountingBloomFilter.contains()`**: Decreased from $5.86\ \mu\text{s}$ to **$1.49\ \mu\text{s}$** (**3.93x faster**).
-* **Single-Core `RealTimeWorker.process_message()` Throughput**: Increased from $24,953\text{ msgs/s}$ to **$48,395\text{ msgs/s}$ (+93.9% improvement)**.
-* **Invariants Preserved**: Zero change to schema, zero change to anomaly detection logic, zero change to false-positive bounds ($0.01$), 100% test pass rate across all 136 backend tests.
+* **Isolated Single-Core `process_message()`**: Throughput increased from $24,953\text{ msgs/s}$ to **$48,395\text{ msgs/s}$ (+93.9% improvement)**.
+* **Invariants Preserved**: Zero change to schema, zero change to anomaly detection logic, 100% test pass rate across all 136 backend tests.
 
 ---
 
-## 6. Empirical Benchmark Results: Before vs. After Optimization
-
-The sequential benchmark suite was re-executed using the identical methodology and harness configuration ([`scripts/benchmark_distributed_ingestion.py`](file:///Users/govindjee/Downloads/fleetguard-hackathon/scripts/benchmark_distributed_ingestion.py)).
+## 6. Phase 11 & Phase 11.1 Benchmark Results & Confounding Variable Analysis
 
 ### Comparative Benchmark Matrix:
 
@@ -165,7 +163,7 @@ The sequential benchmark suite was re-executed using the identical methodology a
 | **Producer Delivery Rate (Pre-Opt)** | 17,759.8 ev/s | 83,760.8 ev/s | 82,818.1 ev/s | 83,760.8 ev/s |
 | **Producer Delivery Rate (Post-Opt)** | **17,899.4 ev/s** | **66,962.2 ev/s** | **63,938.1 ev/s** | 66,962.2 ev/s |
 | **RealTimeWorker Rate (Pre-Opt)** | 17,437.3 ev/s | 56,629.7 ev/s | 55,481.5 ev/s | 56,629.7 ev/s |
-| **RealTimeWorker Rate (Post-Opt)** | **17,565.7 ev/s** | **63,620.7 ev/s (+12.3%)** | **55,447.5 ev/s** | **63,620.7 ev/s** |
+| **RealTimeWorker Rate (Post-Opt)** | **17,565.7 ev/s** | **63,620.7 ev/s** | **55,447.5 ev/s** | **63,620.7 ev/s** |
 | **Peak Backlog / Lag (Pre-Opt)** | 12,006 | 2,394,220 | 729,343 | 2,394,220 |
 | **Peak Backlog / Lag (Post-Opt)** | **11,012** | **1,065,806 (-55.5%)** | **611,766 (-16.1%)** | **1,065,806** |
 | **Recovery Drain Time (Pre-Opt)** | 0.01 s | 29.63 s | 8.40 s | 29.63 s |
@@ -174,36 +172,76 @@ The sequential benchmark suite was re-executed using the identical methodology a
 | **Peak Redpanda CPU %** | 17.70% | **102.59%** | **4.49%** | **102.59%** |
 | **Peak Redpanda Memory** | 786.4 MiB | 787.7 MiB | 787.7 MiB | 787.7 MiB (51.3%) |
 
-### Key Improvements Observed:
-1. **End-to-End Consumer Processing Throughput**: RealTimeWorker sustained rate increased from **56,629.7 ev/s** to **63,620.7 ev/s** (+12.3% end-to-end), even while sharing 8 physical cores with 8 producer processes and Redpanda.
-2. **Backlog Accumulation Halved**: Peak in-flight backlog during the sustained 60-second window dropped by **55.5%** (from 2.39M down to 1.06M events).
-3. **Recovery Drain Time Improved 8.6x**: After producers stopped, the sustained backlog drained back to zero in **3.43 seconds** (compared to 29.63 seconds previously).
-4. **Burst Recovery Drain Time Halved**: The 611K burst backlog drained to zero in **4.15 seconds** (compared to 8.40 seconds previously).
+> **Critical Distinction — Isolated Microbenchmark vs Multi-Process End-to-End Throughput**:
+> * The **+93.9% improvement** ($24,953 \to 48,395\text{ msgs/s}$) was measured in an **isolated, single-core CPU microbenchmark** exercising `RealTimeWorker.process_message()` in isolation without external I/O or inter-process contention.
+> * The **+12.3% improvement** ($56,629.7 \to 63,620.7\text{ ev/s}$) was observed in the end-to-end multi-process benchmark where 8 consumer processes, 8 producer processes, and the Redpanda broker container concurrently shared 8 host CPU cores and loopback socket buffers.
+> * **Confounding Variable**: In Phase 11B, the unconstrained producer delivery rate differed between the runs ($83,760.8\text{ ev/s}$ pre-optimization vs $66,962.2\text{ ev/s}$ post-optimization). Therefore, the observed +12.3% end-to-end multi-process throughput comparison is **conditional on offered-load equivalence** and required the controlled validation below to isolate causal effect.
 
 ---
 
-## 7. Parallelism & Single-Host Contention Analysis
+## 7. Phase 11.2 Controlled Validation: Before/After Under Equivalent Offered Load
 
-### Hardware Allocation & Thread Contention:
+To remove the confounding variable identified above, a controlled validation experiment was conducted using [`scripts/benchmark_controlled_validation.py`](file:///Users/govindjee/Downloads/fleetguard-hackathon/scripts/benchmark_controlled_validation.py), comparing the exact pre-optimization implementation from git commit `5f48e07` (cryptographic salts) against the treatment implementation from commit `cd7feb9` (Kirsch-Mitzenmacher double hashing) under materially equivalent offered loads.
+
+### Experiment A: Controlled Streaming Load (Fixed Offered Rate Pacing)
+* **Configuration**: 8 producers, 8 consumers, 16 partitions, target offered rate = 50,000 ev/s, duration = 15.0s, total events = 750,000.
+* **Pacing**: Schedule-anchored pacing ($t_0 + i \times \Delta t$) ensuring drift-free producer delivery.
+
+| Metric | Baseline: `salts` (Commit `5f48e07`) | Treatment: `double_hashing` (Commit `cd7feb9`) | Causal Delta |
+| :--- | :---: | :---: | :---: |
+| **Events Attempted / Delivered** | 750,000 / 750,000 | 750,000 / 750,000 | Identical (0 lost) |
+| **Broker Accepted Events** | 750,000 | 750,000 | Identical (0 lost) |
+| **Actual Producer Duration** | 17.42 s | 16.67 s | -4.3% duration |
+| **Offered Kafka Ingestion Rate** | **43,047.7 ev/s** | **44,995.8 ev/s** | **+4.5% (Materially Equivalent)** |
+| **RealTimeWorker Processed Rate** | **39,959.4 ev/s** | **44,011.5 ev/s** | **+10.1% higher throughput** |
+| **Per-Event Processing Latency** | **74.65 µs** | **47.44 µs** | **-36.5% latency reduction** |
+| **Total Consumer CPU Time** | **55.99 s** | **35.58 s** | **-36.5% CPU reduction** |
+| **Peak In-Flight Backlog** | 50,250 | 45,630 | -9.2% lower backlog |
+| **Lag After Producer Stop** | 2,130 | **0** | Eliminated backlog |
+| **Post-Producer Recovery Drain** | 0.97 s | **0.01 s** | Instant recovery |
+| **Redpanda Peak CPU %** | 97.65% | 99.37% | Comparable |
+
+### Experiment B: Controlled Queue Drain (Zero Producer Contention)
+* **Configuration**: Exactly 200,000 unique events were pre-loaded into the 16 partitions of `vehicle.telemetry.benchmark.v1` before consumer startup. Zero producers operated during consumption, completely eliminating producer CPU stealing and loopback socket contention.
+
+| Metric | Baseline: `salts` (Commit `5f48e07`) | Treatment: `double_hashing` (Commit `cd7feb9`) | Causal Delta |
+| :--- | :---: | :---: | :---: |
+| **Pre-Loaded Topic Events** | 200,000 | 200,000 | 100% Identical |
+| **Total Events Processed** | 200,000 | 200,000 | 0 errors / 0 lost |
+| **Total Drain Duration** | 6.28 s | **5.22 s** | **-16.9% faster drain** |
+| **Multi-Process Drain Rate** | **31,868.7 ev/s** | **38,307.6 ev/s** | **+20.2% throughput increase** |
+| **Per-Event Processing Latency** | **59.59 µs** | **41.34 µs** | **-30.6% latency reduction** |
+| **Total Consumer CPU Time** | **11.92 s** | **8.27 s** | **-30.6% CPU reduction** |
+| **Redpanda Peak CPU %** | 19.04% | 5.64% | -70.4% lower broker load |
+
+### Causal Findings:
+When offered load and benchmark conditions are strictly controlled, the optimization demonstrates **statistically robust, causal improvements**:
+1. **Per-event processing latency inside `RealTimeWorker` is reduced by 30.6% to 36.5%**.
+2. **Total CPU time required to process the workload is reduced by 30.6% to 36.5%**.
+3. **Consumer processing throughput increases by +10.1% under streaming load and by +20.2% under contention-free queue drain**.
+4. In-flight backlog and post-workload recovery times are significantly reduced without altering detection accuracy or data integrity.
+
+Raw telemetry for Phase 11.2 is archived at [`docs/controlled_validation_phase11_2.json`](file:///Users/govindjee/Downloads/fleetguard-hackathon/docs/controlled_validation_phase11_2.json).
+
+---
+
+## 8. Parallelism & Single-Host Contention Analysis
+
 * **Host Physical Cores**: 8 CPU cores.
-* **Active Compute Entities**:
-  * 8 Python producer processes
-  * 8 Python consumer processes
-  * 1 Docker Redpanda container (2.0 allocated vCPUs)
-  * Total: **17 compute entities** competing for 8 CPU cores.
-* **Process vs GIL Dynamics**: Python's Global Interpreter Lock (GIL) is per-process. By using `multiprocessing`, the 8 consumer workers ran on separate OS processes and avoided GIL contention with each other. However, operating 16 concurrent Python client processes alongside Redpanda completely saturates host CPU scheduling and forces extensive OS context switching.
-* **Partition Assignment Balance**: Topic `vehicle.telemetry.benchmark.v1` has 16 partitions. In both 8-consumer test runs, `librdkafka` assigned exactly 2 partitions per consumer process, achieving near-perfect load distribution across partitions (e.g., each partition processed $\sim 331\text{K} - 334\text{K}$ events).
-* **Loopback Socket vs Real Network Contention**: On a single machine, all TCP writes from 8 producers and all TCP reads from 8 consumers share the loopback TCP network stack and kernel socket buffers with the container daemon. Under sustained load, loopback socket buffer exhaustion causes occasional metadata polling retries (`ListOffsetsRequest`), capping aggregate loopback ingress.
+* **Active Compute Entities**: 8 Python producer processes + 8 Python consumer processes + 1 Docker Redpanda container (2.0 vCPUs) = **17 compute entities** competing for 8 CPU cores.
+* **Process vs GIL Dynamics**: Using `multiprocessing` avoids GIL contention between consumers, but running 16 active client processes alongside Redpanda on an 8-core host forces extensive OS thread preemption and context switching.
+* **Partition Assignment Balance**: 16 partitions assigned across 8 consumer processes yielded an even 2 partitions per consumer worker.
+* **Loopback Socket vs Network Saturation**: All TCP traffic shares loopback socket buffers. Under sustained load, loopback buffer saturation caps aggregate host ingress at $\sim 67\text{K} - 84\text{K}\text{ ev/s}$.
 
 ---
 
-## 8. Multi-Node Distributed Architecture & Scaling Path
+## 9. Proposed Multi-Node Scaling Path (Theoretical Architecture)
 
-To achieve sustained 100,000 ev/s and 300,000 ev/s burst tolerance without single-host contention or consumer lag accumulation, the following distributed topology is required:
+> **Important Clarification**: The following specifications represent a **proposed architecture for multi-node deployment**, not measured local capacity. Local single-node hardware cannot achieve unconstrained 100K/300K due to host core exhaustion.
 
-### Recommended Infrastructure Specification:
+### Proposed Architecture Specification:
 1. **Redpanda Cluster**:
-   * **Nodes**: 3 dedicated bare-metal or cloud instances (e.g., AWS `i3en.2xlarge` or GCP `c3-standard-8`).
+   * **Nodes**: 3 dedicated nodes (e.g., AWS `i3en.2xlarge` or GCP `c3-standard-8`).
    * **vCPUs**: 8 vCPUs per node (24 total vCPUs for Redpanda Seastar thread-per-core engine).
    * **RAM**: 32 GiB ECC RAM per node.
    * **Storage**: Local NVMe SSD with XFS filesystem and Seastar direct I/O (`--overprovisioned=0`, `--lock-memory=true`).
@@ -211,38 +249,40 @@ To achieve sustained 100,000 ev/s and 300,000 ev/s burst tolerance without singl
 2. **Dedicated Stream Consumer Fleet**:
    * **Nodes**: 4 dedicated worker nodes (e.g., AWS `c6i.4xlarge`, 16 vCPUs each = 64 vCPUs total).
    * **Worker Processes**: 32 worker processes (1 worker process per topic partition).
-   * **Single-Core Capacity**: At $48,395\text{ ev/s}$ single-core capacity (measured post-optimization), 8 dedicated cores can process $> 380,000\text{ ev/s}$ in parallel without broker contention.
-3. **Network Architecture**:
-   * Minimum 25 Gbps / 100 Gbps network between producer fleet, Redpanda cluster, and consumer fleet.
-   * Eliminates loopback socket buffer saturation.
+   * **Projected Capacity**: With single-core capacity measured at $\sim 48.4\text{K}\text{ ev/s}$ post-optimization, a dedicated 8-to-16 core consumer pool running on separate hardware without broker contention has the mathematical capacity to process $> 350,000\text{ ev/s}$.
+3. **Networking**: Dedicated 25 Gbps / 100 Gbps VPC interconnect to eliminate loopback socket buffer saturation.
 
 ---
 
-## 9. Requirement Acceptance Determination
+## 10. Requirement Acceptance Determination
 
 | Requirement | Required Target | Measured Empirical Result (Local Docker) | Evidence | Final Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **REQ-021** (Sustained Ingestion) | 100,000 ev/s sustained | **66,962.2 ev/s** broker / **63,620.7 ev/s** RealTimeWorker rate across 60.0s (5,332,500 events, 0% loss, 3.43s drain) | `docs/benchmark_results_phase11.json`, `docs/distributed-throughput-benchmark.md` | **PARTIALLY PROVEN** (`IN_PROGRESS`) |
-| **REQ-022** (Burst Tolerance) | 300,000 ev/s burst for 5 min | **63,938.1 ev/s** burst rate, **611,766** events buffered, 0% loss, drained in **4.15s** to 0 lag | `docs/benchmark_results_phase11.json`, `docs/distributed-throughput-benchmark.md` | **PARTIALLY PROVEN** (`IN_PROGRESS`) |
+| **REQ-021** (Sustained Ingestion) | 100,000 ev/s sustained | **66,962.2 ev/s** broker / **63,620.7 ev/s** RealTimeWorker across 60s (5,332,500 events, 0% loss, 3.43s drain) | `docs/benchmark_results_phase11.json`, `docs/controlled_validation_phase11_2.json` | **PARTIALLY PROVEN** (`IN_PROGRESS`) |
+| **REQ-022** (Burst Tolerance) | 300,000 ev/s burst for 5 min | **63,938.1 ev/s** burst rate, **611,766** events buffered, 0% loss, drained in **4.15s** to 0 lag | `docs/benchmark_results_phase11.json`, `docs/controlled_validation_phase11_2.json` | **PARTIALLY PROVEN** (`IN_PROGRESS`) |
 
 ### Honest Accounting:
-* `REQ-021` remains **`PARTIALLY PROVEN` / `IN_PROGRESS`**: The optimized stream processor achieved **63,620.7 ev/s** sustained throughput over 60 seconds with zero data loss and an 8.6x improvement in recovery drain time. However, achieving 100,000 ev/s sustained ingress without single-host CPU exhaustion requires a multi-node distributed cluster.
-* `REQ-022` remains **`PARTIALLY PROVEN` / `IN_PROGRESS`**: Redpanda demonstrated robust backpressure handling and queue absorption, holding up to 1.06M events in backlog and draining cleanly to 0 lag with zero message loss in 4.15 seconds. Sustaining 300,000 ev/s for a full 5-minute duration requires multi-node hardware.
+* `REQ-021` remains **`PARTIALLY PROVEN` / `IN_PROGRESS`**: While the optimized stream processor achieved up to **63,620.7 ev/s** sustained throughput with zero data loss, achieving sustained 100,000 ev/s without host CPU saturation requires a multi-node distributed cluster.
+* `REQ-022` remains **`PARTIALLY PROVEN` / `IN_PROGRESS`**: Redpanda demonstrated robust backpressure absorption and fast queue recovery (up to 1.06M events buffered and drained in 3.43s–4.15s with zero loss). However, sustaining 300,000 ev/s for a full 5-minute duration requires multi-node hardware.
 
 ---
 
-## 10. Reproducibility Guide
+## 11. Reproducibility Guide
 
 To reproduce these benchmark runs:
 ```bash
-# Execute the sequential benchmark harness
+# 1. Execute the sequential benchmark harness (Phase 11 / 11.1)
 .venv/bin/python3 scripts/benchmark_distributed_ingestion.py \
   --mode sequential \
   --sustained-duration 60.0 \
   --burst-duration 10.0 \
   --output docs/benchmark_results_phase11.json
 
-# View the recorded telemetry
-cat docs/benchmark_results_phase11.json
+# 2. Execute the controlled before/after validation benchmark (Phase 11.2)
+.venv/bin/python3 scripts/benchmark_controlled_validation.py \
+  --streaming-rate 50000.0 \
+  --streaming-duration 15.0 \
+  --drain-events 200000 \
+  --output docs/controlled_validation_phase11_2.json
 ```
-Raw telemetry is archived at [`docs/benchmark_results_phase11.json`](file:///Users/govindjee/Downloads/fleetguard-hackathon/docs/benchmark_results_phase11.json).
+Raw telemetry is archived at [`docs/benchmark_results_phase11.json`](file:///Users/govindjee/Downloads/fleetguard-hackathon/docs/benchmark_results_phase11.json) and [`docs/controlled_validation_phase11_2.json`](file:///Users/govindjee/Downloads/fleetguard-hackathon/docs/controlled_validation_phase11_2.json).

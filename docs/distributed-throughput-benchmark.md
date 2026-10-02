@@ -262,6 +262,7 @@ Raw telemetry for Phase 11.2 is archived at [`docs/controlled_validation_phase11
 | **REQ-022** (Burst Tolerance) | 300,000 ev/s burst for 5 min | **63,938.1 ev/s** burst rate, **611,766** events buffered, 0% loss, drained in **4.15s** to 0 lag | `docs/benchmark_results_phase11.json`, `docs/controlled_validation_phase11_2.json` | **PARTIALLY PROVEN** (`IN_PROGRESS`) |
 
 ### Honest Accounting:
+* **Evidence Boundaries**: While the controlled validation proves genuine causal algorithmic improvement (+93.9% isolated single-core microbenchmark, +20.2% contention-free multi-process drain, and +10.1% concurrent streaming under closely matched offered load), **these local measurements do NOT prove REQ-021 or REQ-022**. Both requirements remain strictly **`PARTIALLY PROVEN` / `IN_PROGRESS`**.
 * `REQ-021` remains **`PARTIALLY PROVEN` / `IN_PROGRESS`**: While the optimized stream processor achieved up to **63,620.7 ev/s** sustained throughput with zero data loss, achieving sustained 100,000 ev/s without host CPU saturation requires a multi-node distributed cluster.
 * `REQ-022` remains **`PARTIALLY PROVEN` / `IN_PROGRESS`**: Redpanda demonstrated robust backpressure absorption and fast queue recovery (up to 1.06M events buffered and drained in 3.43s–4.15s with zero loss). However, sustaining 300,000 ev/s for a full 5-minute duration requires multi-node hardware.
 

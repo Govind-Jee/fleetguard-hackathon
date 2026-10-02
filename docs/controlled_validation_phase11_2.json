@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-10-02T01:07:03.258303+00:00",
+  "commits": {
+    "baseline": "5f48e07 (perf: establish verified distributed throughput benchmark - salts)",
+    "treatment": "cd7feb9 (perf: optimize stream deduplication with double hashing - double_hashing)"
+  },
+  "environment": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "cpu_cores": 8,
+    "python_version": "3.11.9",
+    "redpanda_broker": "Redpanda v24.1.2 (docker.redpanda.com/redpandadata/redpanda:v24.1.2)",
+    "topic": "vehicle.telemetry.benchmark.v1",
+    "partitions": 16
+  },
+  "streaming_test": {
+    "baseline": {
+      "arm": "BASELINE_SALTS",
+      "algorithm": "salts",
+      "target_rate_ev_s": 50000.0,
+      "configured_duration_s": 15.0,
+      "actual_producer_duration_s": 17.42,
+      "total_test_duration_s": 18.77,
+      "events_attempted": 750000,
+      "events_delivered": 750000,
+      "events_failed": 0,
+      "broker_accepted": 750000,
+      "offered_rate_ev_s": 43047.7,
+      "events_processed": 750000,
+      "processed_rate_ev_s": 39959.4,
+      "mean_latency_per_event_us": 74.65,
+      "consumer_cpu_time_total_s": 55.99,
+      "peak_backlog": 50250,
+      "lag_after_producer_stop": 2130,
+      "recovery_time_s": 0.97,
+      "redpanda_peak_cpu": "97.65%",
+      "data_loss": 0
+    },
+    "treatment": {
+      "arm": "TREATMENT_DOUBLE_HASHING",
+      "algorithm": "double_hashing",
+      "target_rate_ev_s": 50000.0,
+      "configured_duration_s": 15.0,
+      "actual_producer_duration_s": 16.67,
+      "total_test_duration_s": 17.04,
+      "events_attempted": 750000,
+      "events_delivered": 750000,
+      "events_failed": 0,
+      "broker_accepted": 750000,
+      "offered_rate_ev_s": 44995.8,
+      "events_processed": 750000,
+      "processed_rate_ev_s": 44011.5,
+      "mean_latency_per_event_us": 47.44,
+      "consumer_cpu_time_total_s": 35.58,
+      "peak_backlog": 45630,
+      "lag_after_producer_stop": 0,
+      "recovery_time_s": 0.01,
+      "redpanda_peak_cpu": "99.37%",
+      "data_loss": 0
+    }
+  },
+  "queue_drain_test": {
+    "baseline": {
+      "arm": "BASELINE_SALTS",
+      "algorithm": "salts",
+      "total_queue_events": 200000,
+      "drain_duration_s": 6.28,
+      "total_processed": 200000,
+      "processing_rate_ev_s": 31868.7,
+      "mean_latency_per_event_us": 59.59,
+      "consumer_cpu_time_total_s": 11.92,
+      "redpanda_peak_cpu": "19.04%"
+    },
+    "treatment": {
+      "arm": "TREATMENT_DOUBLE_HASHING",
+      "algorithm": "double_hashing",
+      "total_queue_events": 200000,
+      "drain_duration_s": 5.22,
+      "total_processed": 200000,
+      "processing_rate_ev_s": 38307.6,
+      "mean_latency_per_event_us": 41.34,
+      "consumer_cpu_time_total_s": 8.27,
+      "redpanda_peak_cpu": "5.64%"
+    }
+  }
+}

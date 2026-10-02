@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 12C - API Concurrency Bottleneck Profiling and Targeted Optimization  
+**CURRENT PHASE:** 12D - Unbiased Concurrent API Latency Validation  
 
 ---
 
@@ -41,9 +41,10 @@
 - Phase 11.2 - Controlled Before/After Optimization Validation
 - Phase 12B - Concurrent API Latency Evidence (REQ-025)
 - Phase 12C - API Concurrency Bottleneck Profiling and Targeted Optimization (REQ-025)
+- Phase 12D - Unbiased Concurrent API Latency Validation (REQ-025)
 
 ### IN PROGRESS:
-Phase 12C completed. Next acceptance requirement pending.
+Phase 12D completed. Next acceptance requirement pending.
 
 ### BLOCKERS:
 None
@@ -448,6 +449,86 @@ Across all 3 benchmark phases, **7,042,000 telemetry events** were generated, in
   - Concurrency 20–50 exceeds $200\text{ ms}$ on single-node 2-worker Docker deployment under client/server host contention.
   - Full production SLA at 20–50 concurrency requires distributed horizontal scaling (4–8 workers behind ALB/Nginx) and dedicated client/server host separation.
 - **Regression Suite Integrity**: 136/136 automated tests passing (`pytest tests/ -q` in 4.5s).
+
+---
+
+## Phase 12D Implementation & Evidence Summary: Unbiased Concurrent API Latency Validation (REQ-025)
+
+### 1. Objective and Methodology
+- **Objective**: Address client-side scheduling contention identified during Phase 12C by employing a compiled, external load generator (`/usr/sbin/ab` - ApacheBench) to validate **REQ-025** ($p95 < 200\text{ ms}$, $p99 < 500\text{ ms}$) without Python asyncio/GIL client contention on the host CPU.
+- **Harness & Target**: Real HTTP/TCP requests against `http://127.0.0.1:8000` (Uvicorn 2 workers) with valid JWT Bearer token authentication via `scripts/benchmark_api_compiled_client.py`. Zero mocked/TestClient shortcuts.
+- **Scope**: Swept concurrency tiers 10, 20, and 50 across 7 representative endpoints (1,000 requests per tier + 50 warmup requests = 22,050 total benchmarked requests).
+- **Raw Evidence**: Machine-readable output stored in `docs/api_concurrent_benchmark_phase12d.json`.
+
+### 2. Resolution of Client-Side Artifact: The `/health` Control
+In Phase 12B and 12C, `/health` (which performs zero database operations or I/O) showed severe degradation under `httpx.AsyncClient` concurrency (p95 degraded from $41.7\text{ ms}$ at c=10 to $1,127.5\text{ ms}$ at c=50).
+
+With the compiled `/usr/sbin/ab` client, `/health` demonstrated:
+- **c=10**: $p95 = 36.0\text{ ms}$, $p99 = 70.0\text{ ms}$, Throughput = **$755.0\text{ req/s}$**, Errors = **0** (**PASS**)
+- **c=20**: $p95 = 44.0\text{ ms}$, $p99 = 74.0\text{ ms}$, Throughput = **$1,430.2\text{ req/s}$**, Errors = **0** (**PASS**)
+- **c=50**: $p95 = 29.0\text{ ms}$, $p99 = 33.0\text{ ms}$, Throughput = **$3,163.8\text{ req/s}$**, Errors = **0** (**PASS**)
+
+*Conclusion*: At concurrency 50, `/health` delivers over 3,160 RPS with sub-35ms p99 latency. This conclusively proves that the FastAPI application and ASGI event-loop scheduling have virtually zero internal queueing overhead under concurrent connection loads, and the previously observed `/health` degradation was 100% a client-side scheduling artifact of `httpx.AsyncClient`.
+
+### 3. Comprehensive Phase 12D Compiled Client Benchmark Results
+
+| Endpoint | Concurrency | Requests | $p50$ (ms) | $p95$ (ms) | $p99$ (ms) | Max (ms) | RPS | Errors | SLA Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET /health` | 10 | 1000 | 10.0 | **36.0** | **70.0** | 91.0 | 755.0 | 0 | **PASS** |
+| `GET /vehicles` | 10 | 1000 | 41.0 | **137.0** | **212.0** | 266.0 | 186.0 | 0 | **PASS** |
+| `GET /vehicles/{vin}` | 10 | 1000 | 27.0 | **87.0** | **141.0** | 245.0 | 285.2 | 0 | **PASS** |
+| `GET /vehicles/{vin}/risk` | 10 | 1000 | 32.0 | **114.0** | **165.0** | 281.0 | 228.5 | 0 | **PASS** |
+| `GET /alerts` | 10 | 1000 | 23.0 | **79.0** | **134.0** | 293.0 | 320.1 | 0 | **PASS** |
+| `GET /fleets/{fleet_id}/health` | 10 | 1000 | 194.0 | 472.0 | 799.0 | 1397.0 | 45.4 | 0 | FAIL |
+| `GET /diagnostics/similar` | 10 | 1000 | 27.0 | **113.0** | **180.0** | 240.0 | 260.0 | 0 | **PASS** |
+| `GET /health` | 20 | 1000 | 8.0 | **44.0** | **74.0** | 83.0 | 1430.2 | 0 | **PASS** |
+| `GET /vehicles` | 20 | 1000 | 130.0 | 625.0 | 1711.0 | 2008.0 | 94.9 | 0 | FAIL |
+| `GET /vehicles/{vin}` | 20 | 1000 | 84.0 | 391.0 | 613.0 | 681.0 | 167.5 | 0 | FAIL |
+| `GET /vehicles/{vin}/risk` | 20 | 1000 | 67.0 | 218.0 | 342.0 | 387.0 | 232.9 | 0 | FAIL (marginal) |
+| `GET /alerts` | 20 | 1000 | 81.0 | 361.0 | 481.0 | 583.0 | 178.9 | 0 | FAIL |
+| `GET /fleets/{fleet_id}/health` | 20 | 1000 | 698.0 | 1757.0 | 2388.0 | 3127.0 | 25.4 | 0 | FAIL |
+| `GET /diagnostics/similar` | 20 | 1000 | 114.0 | 583.0 | 910.0 | 1030.0 | 106.4 | 0 | FAIL |
+| `GET /health` | 50 | 1000 | 13.0 | **29.0** | **33.0** | 38.0 | 3163.8 | 0 | **PASS** |
+| `GET /vehicles` | 50 | 1000 | 822.0 | 2854.0 | 3737.0 | 4666.0 | 49.6 | 50 | FAIL |
+| `GET /vehicles/{vin}` | 50 | 1000 | 416.0 | 2058.0 | 2669.0 | 3972.0 | 77.2 | 0 | FAIL |
+| `GET /vehicles/{vin}/risk` | 50 | 1000 | 462.0 | 1335.0 | 3027.0 | 3432.0 | 83.0 | 8 | FAIL |
+| `GET /alerts` | 50 | 1000 | 414.0 | 1118.0 | 1645.0 | 2503.0 | 96.4 | 4 | FAIL |
+| `GET /fleets/{fleet_id}/health` | 50 | 1000 | 2004.0 | 3793.0 | 4393.0 | 6377.0 | 23.1 | 40 | FAIL |
+| `GET /diagnostics/similar` | 50 | 1000 | 402.0 | 958.0 | 1202.0 | 1898.0 | 104.7 | 0 | FAIL |
+
+### 4. Cross-Phase Latency Comparison (p95 ms)
+
+| Endpoint | Concurrency | Phase 12B (Async pre-opt) | Phase 12C (Async post-opt) | Phase 12D (`ab` post-opt) | Delta (12C -> 12D) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET /health` | c=10 | 52.4 ms | 41.7 ms | **36.0 ms** | -13.7% |
+| `GET /vehicles` | c=10 | 263.9 ms | 161.8 ms | **137.0 ms** | -15.3% |
+| `GET /vehicles/{vin}` | c=10 | 87.3 ms | 122.8 ms | **87.0 ms** | -29.1% |
+| `GET /vehicles/{vin}/risk` | c=10 | 293.2 ms | 182.1 ms | **114.0 ms** | -37.4% |
+| `GET /alerts` | c=10 | 115.5 ms | 136.0 ms | **79.0 ms** | -41.9% |
+| `GET /fleets/{fleet_id}/health` | c=10 | 203.9 ms | 693.0 ms | **472.0 ms** | -31.9% |
+| `GET /diagnostics/similar` | c=10 | 137.6 ms | 152.8 ms | **113.0 ms** | -26.1% |
+| `GET /health` | c=20 | 210.7 ms | 214.9 ms | **44.0 ms** | **-79.5%** |
+| `GET /vehicles` | c=20 | 312.0 ms | 575.5 ms | 625.0 ms | +8.6% |
+| `GET /vehicles/{vin}` | c=20 | 391.8 ms | 690.9 ms | **391.0 ms** | -43.4% |
+| `GET /vehicles/{vin}/risk` | c=20 | 568.8 ms | 496.0 ms | **218.0 ms** | -56.0% |
+| `GET /alerts` | c=20 | 389.6 ms | 454.9 ms | **361.0 ms** | -20.6% |
+| `GET /fleets/{fleet_id}/health` | c=20 | 511.3 ms | 1695.9 ms | 1757.0 ms | +3.6% |
+| `GET /diagnostics/similar` | c=20 | 391.8 ms | 842.4 ms | **583.0 ms** | -30.8% |
+| `GET /health` | c=50 | 780.1 ms | 1127.5 ms | **29.0 ms** | **-97.4%** |
+| `GET /vehicles` | c=50 | 1125.2 ms | 1813.6 ms | 2854.0 ms | +57.4% |
+| `GET /vehicles/{vin}` | c=50 | 1718.6 ms | 2288.5 ms | **2058.0 ms** | -10.1% |
+| `GET /vehicles/{vin}/risk` | c=50 | 1211.6 ms | 1781.4 ms | **1335.0 ms** | -25.1% |
+| `GET /alerts` | c=50 | 1539.0 ms | 1191.1 ms | **1118.0 ms** | -6.1% |
+| `GET /fleets/{fleet_id}/health` | c=50 | 1864.1 ms | 3209.3 ms | 3793.0 ms | +18.2% |
+| `GET /diagnostics/similar` | c=50 | 1553.5 ms | 1860.7 ms | **958.0 ms** | -48.5% |
+
+### 5. Final REQ-025 Acceptance Determination
+- **Status Preserved**: **`IN_PROGRESS / PARTIALLY PROVEN`**.
+- **Empirical Boundary**:
+  - **Sequential Baseline**: Fully proven ($p95 < 30\text{ ms}$, $p99 < 45\text{ ms}$).
+  - **Concurrency Tier 10**: Fully proven for **6 of 7 endpoints** ($p95 \le 137\text{ ms}$, $p99 \le 212\text{ ms}$, zero errors).
+  - **Concurrency Tier 20–50**: Lightweight / CPU-bound endpoints pass decisively (`/health` at $p95 = 29\text{ ms}$, $3,164\text{ RPS}$ under 50 concurrency). However, database-bound endpoints exceed 200 ms SLA on single-host Docker due to relational query queueing on a single PostgreSQL instance and connection pool concurrency limits. Distributed horizontal scaling (4–8 API workers across containers + dedicated database tier) is necessary to sustain the SLA under concurrency $\ge 20$.
+- **Test Suite Status**: 136/136 tests passing (`pytest tests/ -q` in 4.5s).
 
 ---
 

@@ -1,0 +1,640 @@
+{
+  "timestamp": "2026-10-02T01:25:21.440946+00:00",
+  "environment": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "cpu_cores": 8,
+    "python_version": "3.11.9",
+    "fastapi_base_url": "http://127.0.0.1:8000",
+    "target_sla": {
+      "p95_max_ms": 200.0,
+      "p99_max_ms": 500.0
+    }
+  },
+  "concurrency_sweep": {
+    "concurrency_10": [
+      {
+        "endpoint": "GET /health",
+        "path": "/health",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 2.352,
+        "throughput_rps": 425.2,
+        "mean_ms": 22.55,
+        "min_ms": 5.59,
+        "p50_ms": 14.11,
+        "p90_ms": 36.33,
+        "p95_ms": 52.4,
+        "p99_ms": 148.93,
+        "max_ms": 636.58,
+        "p95_sla_met": true,
+        "p99_sla_met": true,
+        "sla_passed": true
+      },
+      {
+        "endpoint": "GET /vehicles",
+        "path": "/vehicles?limit=20&page=1",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 11.623,
+        "throughput_rps": 86.0,
+        "mean_ms": 115.32,
+        "min_ms": 19.89,
+        "p50_ms": 89.15,
+        "p90_ms": 191.74,
+        "p95_ms": 263.85,
+        "p99_ms": 1028.87,
+        "max_ms": 1508.67,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles/{vin}",
+        "path": "/vehicles/1HGCR2F83HA000001",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 3.616,
+        "throughput_rps": 276.5,
+        "mean_ms": 35.15,
+        "min_ms": 6.28,
+        "p50_ms": 27.38,
+        "p90_ms": 69.35,
+        "p95_ms": 87.32,
+        "p99_ms": 129.06,
+        "max_ms": 163.67,
+        "p95_sla_met": true,
+        "p99_sla_met": true,
+        "sla_passed": true
+      },
+      {
+        "endpoint": "GET /vehicles/{vin}/risk",
+        "path": "/vehicles/1HGCR2F83HA000001/risk",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 10.63,
+        "throughput_rps": 94.1,
+        "mean_ms": 104.48,
+        "min_ms": 15.14,
+        "p50_ms": 71.67,
+        "p90_ms": 180.9,
+        "p95_ms": 293.24,
+        "p99_ms": 594.34,
+        "max_ms": 1431.95,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /alerts",
+        "path": "/alerts?limit=20&page=1",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 4.662,
+        "throughput_rps": 214.5,
+        "mean_ms": 44.98,
+        "min_ms": 6.56,
+        "p50_ms": 35.96,
+        "p90_ms": 89.1,
+        "p95_ms": 115.54,
+        "p99_ms": 159.87,
+        "max_ms": 211.96,
+        "p95_sla_met": true,
+        "p99_sla_met": true,
+        "sla_passed": true
+      },
+      {
+        "endpoint": "GET /fleets/{fleet_id}/health",
+        "path": "/fleets/d0000000-0000-0000-0000-000000000001/health",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 13.887,
+        "throughput_rps": 72.0,
+        "mean_ms": 137.97,
+        "min_ms": 62.06,
+        "p50_ms": 136.23,
+        "p90_ms": 184.29,
+        "p95_ms": 203.88,
+        "p99_ms": 308.36,
+        "max_ms": 377.52,
+        "p95_sla_met": false,
+        "p99_sla_met": true,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /diagnostics/similar",
+        "path": "/diagnostics/similar?vector=0.64,2.05,0.59,0.86,3.75,0.49,-1.15,0.44,0.00,0.00,0.00,0.00,0.54,0.88,1.00,0.00&limit=5",
+        "concurrency": 10,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 5.581,
+        "throughput_rps": 179.2,
+        "mean_ms": 53.93,
+        "min_ms": 11.68,
+        "p50_ms": 40.97,
+        "p90_ms": 103.44,
+        "p95_ms": 137.55,
+        "p99_ms": 229.75,
+        "max_ms": 405.07,
+        "p95_sla_met": true,
+        "p99_sla_met": true,
+        "sla_passed": true
+      }
+    ],
+    "concurrency_20": [
+      {
+        "endpoint": "GET /health",
+        "path": "/health",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 4.208,
+        "throughput_rps": 237.7,
+        "mean_ms": 78.93,
+        "min_ms": 8.99,
+        "p50_ms": 59.08,
+        "p90_ms": 162.71,
+        "p95_ms": 210.72,
+        "p99_ms": 326.53,
+        "max_ms": 463.54,
+        "p95_sla_met": false,
+        "p99_sla_met": true,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles",
+        "path": "/vehicles?limit=20&page=1",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 10.419,
+        "throughput_rps": 96.0,
+        "mean_ms": 205.9,
+        "min_ms": 36.92,
+        "p50_ms": 193.6,
+        "p90_ms": 281.86,
+        "p95_ms": 311.97,
+        "p99_ms": 435.38,
+        "max_ms": 512.29,
+        "p95_sla_met": false,
+        "p99_sla_met": true,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles/{vin}",
+        "path": "/vehicles/1HGCR2F83HA000001",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 7.704,
+        "throughput_rps": 129.8,
+        "mean_ms": 147.34,
+        "min_ms": 15.35,
+        "p50_ms": 111.05,
+        "p90_ms": 288.56,
+        "p95_ms": 391.78,
+        "p99_ms": 646.74,
+        "max_ms": 1107.54,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles/{vin}/risk",
+        "path": "/vehicles/1HGCR2F83HA000001/risk",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 10.316,
+        "throughput_rps": 96.9,
+        "mean_ms": 200.14,
+        "min_ms": 19.97,
+        "p50_ms": 148.16,
+        "p90_ms": 419.34,
+        "p95_ms": 568.78,
+        "p99_ms": 970.33,
+        "max_ms": 1265.96,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /alerts",
+        "path": "/alerts?limit=20&page=1",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 7.79,
+        "throughput_rps": 128.4,
+        "mean_ms": 149.87,
+        "min_ms": 21.65,
+        "p50_ms": 112.79,
+        "p90_ms": 306.13,
+        "p95_ms": 389.6,
+        "p99_ms": 658.07,
+        "max_ms": 1036.77,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /fleets/{fleet_id}/health",
+        "path": "/fleets/d0000000-0000-0000-0000-000000000001/health",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 17.241,
+        "throughput_rps": 58.0,
+        "mean_ms": 341.66,
+        "min_ms": 42.16,
+        "p50_ms": 325.21,
+        "p90_ms": 447.94,
+        "p95_ms": 511.29,
+        "p99_ms": 687.41,
+        "max_ms": 760.74,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /diagnostics/similar",
+        "path": "/diagnostics/similar?vector=0.64,2.05,0.59,0.86,3.75,0.49,-1.15,0.44,0.00,0.00,0.00,0.00,0.54,0.88,1.00,0.00&limit=5",
+        "concurrency": 20,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 8.105,
+        "throughput_rps": 123.4,
+        "mean_ms": 156.08,
+        "min_ms": 22.86,
+        "p50_ms": 117.59,
+        "p90_ms": 298.8,
+        "p95_ms": 391.8,
+        "p99_ms": 624.5,
+        "max_ms": 1271.91,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      }
+    ],
+    "concurrency_50": [
+      {
+        "endpoint": "GET /health",
+        "path": "/health",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 5.385,
+        "throughput_rps": 185.7,
+        "mean_ms": 255.7,
+        "min_ms": 13.71,
+        "p50_ms": 185.13,
+        "p90_ms": 584.55,
+        "p95_ms": 780.13,
+        "p99_ms": 1111.5,
+        "max_ms": 1497.49,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles",
+        "path": "/vehicles?limit=20&page=1",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 917,
+        "failed_requests": 83,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 917,
+          "500": 52,
+          "599": 31
+        },
+        "wall_time_s": 14.956,
+        "throughput_rps": 66.9,
+        "mean_ms": 730.88,
+        "min_ms": 31.65,
+        "p50_ms": 735.68,
+        "p90_ms": 1028.27,
+        "p95_ms": 1125.18,
+        "p99_ms": 1333.22,
+        "max_ms": 1565.2,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles/{vin}",
+        "path": "/vehicles/1HGCR2F83HA000001",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 10.964,
+        "throughput_rps": 91.2,
+        "mean_ms": 525.77,
+        "min_ms": 27.93,
+        "p50_ms": 345.48,
+        "p90_ms": 1202.33,
+        "p95_ms": 1718.57,
+        "p99_ms": 2682.53,
+        "max_ms": 5395.02,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /vehicles/{vin}/risk",
+        "path": "/vehicles/1HGCR2F83HA000001/risk",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 8.632,
+        "throughput_rps": 115.8,
+        "mean_ms": 413.53,
+        "min_ms": 29.36,
+        "p50_ms": 278.94,
+        "p90_ms": 959.51,
+        "p95_ms": 1211.64,
+        "p99_ms": 2172.77,
+        "max_ms": 3239.15,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /alerts",
+        "path": "/alerts?limit=20&page=1",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 992,
+        "failed_requests": 8,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 992,
+          "500": 8
+        },
+        "wall_time_s": 11.309,
+        "throughput_rps": 88.4,
+        "mean_ms": 545.86,
+        "min_ms": 43.38,
+        "p50_ms": 378.37,
+        "p90_ms": 1234.11,
+        "p95_ms": 1539.02,
+        "p99_ms": 2487.09,
+        "max_ms": 3252.14,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /fleets/{fleet_id}/health",
+        "path": "/fleets/d0000000-0000-0000-0000-000000000001/health",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 937,
+        "failed_requests": 63,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 937,
+          "500": 41,
+          "599": 22
+        },
+        "wall_time_s": 26.224,
+        "throughput_rps": 38.1,
+        "mean_ms": 1246.24,
+        "min_ms": 35.26,
+        "p50_ms": 1194.77,
+        "p90_ms": 1718.76,
+        "p95_ms": 1864.1,
+        "p99_ms": 2188.15,
+        "max_ms": 2781.52,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      },
+      {
+        "endpoint": "GET /diagnostics/similar",
+        "path": "/diagnostics/similar?vector=0.64,2.05,0.59,0.86,3.75,0.49,-1.15,0.44,0.00,0.00,0.00,0.00,0.54,0.88,1.00,0.00&limit=5",
+        "concurrency": 50,
+        "total_requests": 1000,
+        "successful_requests": 1000,
+        "failed_requests": 0,
+        "timeout_count": 0,
+        "status_distribution": {
+          "200": 1000
+        },
+        "wall_time_s": 9.971,
+        "throughput_rps": 100.3,
+        "mean_ms": 479.95,
+        "min_ms": 29.9,
+        "p50_ms": 314.94,
+        "p90_ms": 1097.09,
+        "p95_ms": 1553.47,
+        "p99_ms": 2210.49,
+        "max_ms": 3442.71,
+        "p95_sla_met": false,
+        "p99_sla_met": false,
+        "sla_passed": false
+      }
+    ]
+  },
+  "resource_snapshots": {
+    "initial": {
+      "fleetguard-redis": {
+        "cpu_perc": "0.27%",
+        "mem_usage": "2.477MiB / 512MiB",
+        "mem_perc": "0.48%"
+      },
+      "fleetguard-postgres": {
+        "cpu_perc": "0.00%",
+        "mem_usage": "32.02MiB / 1GiB",
+        "mem_perc": "3.13%"
+      },
+      "fleetguard-mongodb": {
+        "cpu_perc": "7.18%",
+        "mem_usage": "76.69MiB / 1GiB",
+        "mem_perc": "7.49%"
+      },
+      "fleetguard-clickhouse": {
+        "cpu_perc": "17.91%",
+        "mem_usage": "1.094GiB / 1.5GiB",
+        "mem_perc": "72.92%"
+      },
+      "fleetguard-redpanda": {
+        "cpu_perc": "0.80%",
+        "mem_usage": "760MiB / 1.5GiB",
+        "mem_perc": "49.48%"
+      }
+    },
+    "post_concurrency_10": {
+      "fleetguard-redis": {
+        "cpu_perc": "0.27%",
+        "mem_usage": "2.633MiB / 512MiB",
+        "mem_perc": "0.51%"
+      },
+      "fleetguard-postgres": {
+        "cpu_perc": "6.07%",
+        "mem_usage": "30.63MiB / 1GiB",
+        "mem_perc": "2.99%"
+      },
+      "fleetguard-mongodb": {
+        "cpu_perc": "0.68%",
+        "mem_usage": "76.7MiB / 1GiB",
+        "mem_perc": "7.49%"
+      },
+      "fleetguard-clickhouse": {
+        "cpu_perc": "4.17%",
+        "mem_usage": "1.162GiB / 1.5GiB",
+        "mem_perc": "77.44%"
+      },
+      "fleetguard-redpanda": {
+        "cpu_perc": "0.87%",
+        "mem_usage": "738.6MiB / 1.5GiB",
+        "mem_perc": "48.09%"
+      }
+    },
+    "post_concurrency_20": {
+      "fleetguard-redis": {
+        "cpu_perc": "0.25%",
+        "mem_usage": "2.688MiB / 512MiB",
+        "mem_perc": "0.52%"
+      },
+      "fleetguard-postgres": {
+        "cpu_perc": "5.05%",
+        "mem_usage": "30.7MiB / 1GiB",
+        "mem_perc": "3.00%"
+      },
+      "fleetguard-mongodb": {
+        "cpu_perc": "55.37%",
+        "mem_usage": "76.43MiB / 1GiB",
+        "mem_perc": "7.46%"
+      },
+      "fleetguard-clickhouse": {
+        "cpu_perc": "6.23%",
+        "mem_usage": "1.104GiB / 1.5GiB",
+        "mem_perc": "73.61%"
+      },
+      "fleetguard-redpanda": {
+        "cpu_perc": "0.68%",
+        "mem_usage": "739.4MiB / 1.5GiB",
+        "mem_perc": "48.14%"
+      }
+    },
+    "post_concurrency_50": {
+      "fleetguard-redis": {
+        "cpu_perc": "0.27%",
+        "mem_usage": "2.898MiB / 512MiB",
+        "mem_perc": "0.57%"
+      },
+      "fleetguard-postgres": {
+        "cpu_perc": "0.08%",
+        "mem_usage": "29.94MiB / 1GiB",
+        "mem_perc": "2.92%"
+      },
+      "fleetguard-mongodb": {
+        "cpu_perc": "56.34%",
+        "mem_usage": "76.52MiB / 1GiB",
+        "mem_perc": "7.47%"
+      },
+      "fleetguard-clickhouse": {
+        "cpu_perc": "12.44%",
+        "mem_usage": "1.099GiB / 1.5GiB",
+        "mem_perc": "73.30%"
+      },
+      "fleetguard-redpanda": {
+        "cpu_perc": "0.78%",
+        "mem_usage": "740.1MiB / 1.5GiB",
+        "mem_perc": "48.19%"
+      }
+    }
+  }
+}

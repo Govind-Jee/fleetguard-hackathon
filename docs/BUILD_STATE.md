@@ -1,7 +1,7 @@
 # Build State: FleetGuard
 
 **PROJECT:** Connected Vehicle Intelligence Hackathon  
-**CURRENT PHASE:** 11.2 - Controlled Before/After Optimization Validation  
+**CURRENT PHASE:** 12B - Concurrent API Latency Evidence (REQ-025)  
 
 ---
 
@@ -39,15 +39,16 @@
 - Phase 11 - Distributed 100K/300K Performance Benchmark
 - Phase 11.1 - Throughput Bottleneck Audit and Targeted Optimization Assessment
 - Phase 11.2 - Controlled Before/After Optimization Validation
+- Phase 12B - Concurrent API Latency Evidence (REQ-025)
 
 ### IN PROGRESS:
-Phase 11.2 completed and verified. Ready for Phase 12.
+Phase 12B completed and audited. Next acceptance requirement pending.
 
 ### BLOCKERS:
 None
 
 ### NEXT STEP:
-Phase 12 - Distributed Architecture Tradeoffs, Resilience, and Cloud Deployment Verification
+Next Phase 12 item as directed by user.
 
 ---
 
@@ -304,6 +305,89 @@ Across all 3 benchmark phases, **7,042,000 telemetry events** were generated, in
 
 ---
 
+## Phase 12B Implementation & Evidence Summary: Concurrent API Latency SLA Benchmark (REQ-025)
+
+### 1. Harness & Test Methodology
+- **Benchmark Script**: `scripts/benchmark_concurrent_api.py`
+- **Raw Evidence Artifact**: `docs/api_concurrent_benchmark_phase12.json`
+- **Runtime Environment**:
+  - Host: macOS Darwin arm64 (8 CPU cores), Python 3.11.9
+  - Application: FastAPI running under Uvicorn with 2 worker processes listening on `http://127.0.0.1:8000` via real loopback TCP sockets
+  - Datastores: PostgreSQL 16 (`localhost:5433`, `POSTGRES_POOL_MIN=2`, `POSTGRES_POOL_MAX=20`), Redis 7 (`localhost:6380`), ClickHouse (`localhost:8123`)
+  - Authentication: Keycloak-compatible dev Bearer JWT (`admin@metrotransit.com`, tenant `a0000000-0000-0000-0000-000000000001`, roles `ADMIN`, `DISPATCHER`, `TECHNICIAN`)
+  - Rate Limiter: Redis sliding-window check exercised on every authenticated request (`RATE_LIMIT_REQUESTS_PER_MINUTE=1000000` ceiling to avoid test drops while executing the real rate limiter pipeline)
+- **Workload**:
+  - 7 Representative Endpoints:
+    1. `GET /health` (Lightweight baseline)
+    2. `GET /vehicles?limit=20&page=1` (Relational paginated directory query)
+    3. `GET /vehicles/{vin}` (Authoritative 3NF point lookup + Redis hot state)
+    4. `GET /vehicles/{vin}/risk` (Composite ML predictive risk evaluation)
+    5. `GET /alerts` (Recent alert stream query)
+    6. `GET /fleets/{fleet_id}/health` (Fleet aggregate calculation across vehicles)
+    7. `GET /diagnostics/similar?vector=...&limit=5` (pgvector 16-D HNSW cosine similarity search)
+  - Concurrency Sweep: 10, 20, and 50 concurrent client workers using `httpx.AsyncClient`
+  - Volume: 1,000 measured requests per endpoint per concurrency tier (with 50 warm-up requests per block), totaling 22,050 HTTP requests.
+
+### 2. Quantitative Benchmark Results
+
+| Endpoint | Concurrency | Requests | p50 (ms) | p95 (ms) | p99 (ms) | Max (ms) | Throughput (req/s) | Errors | SLA Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET /health` | 10 | 1,000 | 14.11 | **52.40** | **148.93** | 636.58 | 425.2 | 0 | **PASS** |
+| `GET /vehicles` | 10 | 1,000 | 89.15 | 263.85 | 1028.87 | 1508.67 | 86.0 | 0 | FAIL |
+| `GET /vehicles/{vin}` | 10 | 1,000 | 27.38 | **87.32** | **129.06** | 163.67 | 276.5 | 0 | **PASS** |
+| `GET /vehicles/{vin}/risk` | 10 | 1,000 | 71.67 | 293.24 | 594.34 | 1431.95 | 94.1 | 0 | FAIL |
+| `GET /alerts` | 10 | 1,000 | 35.96 | **115.54** | **159.87** | 211.96 | 214.5 | 0 | **PASS** |
+| `GET /fleets/{fleet_id}/health` | 10 | 1,000 | 136.23 | 203.88 | 308.36 | 377.52 | 72.0 | 0 | FAIL (marginal) |
+| `GET /diagnostics/similar` | 10 | 1,000 | 40.97 | **137.55** | **229.75** | 405.07 | 179.2 | 0 | **PASS** |
+| `GET /health` | 20 | 1,000 | 59.08 | 210.72 | 326.53 | 463.54 | 237.7 | 0 | FAIL |
+| `GET /vehicles` | 20 | 1,000 | 193.60 | 311.97 | 435.38 | 512.29 | 96.0 | 0 | FAIL |
+| `GET /vehicles/{vin}` | 20 | 1,000 | 111.05 | 391.78 | 646.74 | 1107.54 | 129.8 | 0 | FAIL |
+| `GET /vehicles/{vin}/risk` | 20 | 1,000 | 148.16 | 568.78 | 970.33 | 1265.96 | 96.9 | 0 | FAIL |
+| `GET /alerts` | 20 | 1,000 | 112.79 | 389.60 | 658.07 | 1036.77 | 128.4 | 0 | FAIL |
+| `GET /fleets/{fleet_id}/health` | 20 | 1,000 | 325.21 | 511.29 | 687.41 | 760.74 | 58.0 | 0 | FAIL |
+| `GET /diagnostics/similar` | 20 | 1,000 | 117.59 | 391.80 | 624.50 | 1271.91 | 123.4 | 0 | FAIL |
+| `GET /health` | 50 | 1,000 | 185.13 | 780.13 | 1111.50 | 1497.49 | 185.7 | 0 | FAIL |
+| `GET /vehicles` | 50 | 1,000 | 735.68 | 1125.18 | 1333.22 | 1565.20 | 66.9 | 83 (8.3%) | FAIL |
+| `GET /vehicles/{vin}` | 50 | 1,000 | 345.48 | 1718.57 | 2682.53 | 5395.02 | 91.2 | 0 | FAIL |
+| `GET /vehicles/{vin}/risk` | 50 | 1,000 | 278.94 | 1211.64 | 2172.77 | 3239.15 | 115.8 | 0 | FAIL |
+| `GET /alerts` | 50 | 1,000 | 378.37 | 1539.02 | 2487.09 | 3252.14 | 88.4 | 8 (0.8%) | FAIL |
+| `GET /fleets/{fleet_id}/health` | 50 | 1,000 | 1194.77 | 1864.10 | 2188.15 | 2781.52 | 38.1 | 63 (6.3%) | FAIL |
+| `GET /diagnostics/similar` | 50 | 1,000 | 314.94 | 1553.47 | 2210.49 | 3442.71 | 100.3 | 0 | FAIL |
+
+### 3. Bottleneck & Root-Cause Audit
+1. **Low Concurrency (10 clients)**:
+   - 4 out of 7 endpoints comfortably satisfy the SLA: `/health` (p95 52.4ms), `/vehicles/{vin}` (p95 87.3ms), `/alerts` (p95 115.5ms), and pgvector `/diagnostics/similar` (p95 137.6ms), with 0 errors across 7,000 requests.
+   - Aggregate fleet calculation (`/fleets/{fleet_id}/health`) marginally missed at p95 203.9 ms (+3.88 ms over threshold).
+   - Complex relational scans (`/vehicles` at p95 263.9 ms, `/vehicles/{vin}/risk` at p95 293.2 ms) exceeded the 200 ms SLA due to relational pagination and multi-table lookups.
+2. **Medium Concurrency (20 clients)**:
+   - Zero HTTP errors occurred across all 7,000 requests.
+   - However, p95 latencies elevated to 210–568 ms across all endpoints, including `/health` (p95 210.7 ms). This demonstrates **worker concurrency starvation**: running only 2 Uvicorn worker processes on a single host results in socket backlog queueing when 20 simultaneous connections arrive.
+3. **High Concurrency (50 clients)**:
+   - Worker event loops became heavily saturated (p95 780–1864 ms).
+   - In addition, **database connection pool exhaustion** occurred: with `POSTGRES_POOL_MAX=20`, psycopg2's `ThreadedConnectionPool.getconn()` immediately raises `PoolError("connection pool exhausted")` without an async waiting queue when 50 concurrent requests simultaneously checkout connections. This caused 83 errors on `/vehicles`, 8 on `/alerts`, and 63 on `/fleets/{fleet_id}/health`.
+4. **FastAPI Event Loop Serialization**:
+   - Several endpoint routes defined with `async def` call blocking synchronous psycopg2 database operations. Within each single-threaded Uvicorn worker event loop, blocking I/O temporarily stalls all other concurrent coroutines, amplifying tail latency under high concurrency.
+5. **Horizontal Scaling Requirements for Full SLA**:
+   - Meeting the p95 < 200 ms SLA under 20–50 concurrent clients requires:
+     - 4–8 Uvicorn worker processes behind an Nginx/ALB reverse proxy.
+     - Asynchronous database drivers (e.g., `asyncpg`) or offloading synchronous queries to threadpools (`asyncio.to_thread`).
+     - Scaled connection pooling (`POSTGRES_POOL_MAX >= concurrent clients`).
+
+### 4. Requirement Status Determination
+- `REQ-025` is confirmed as **`IN_PROGRESS / PARTIALLY PROVEN`**:
+  - Fully proven at sequential single-client baseline (`p95 < 30ms`, `p99 < 45ms` across all endpoints).
+  - Partially proven at concurrency 10 for lightweight, point lookup, alert, and vector search endpoints.
+  - Concurrency 20–50 on single-node Docker experiences worker starvation and pool saturation, requiring multi-worker / container scaling to achieve full SLA.
+- All other requirement statuses remain strictly invariant:
+  - `REQ-021` = `IN_PROGRESS`
+  - `REQ-022` = `IN_PROGRESS`
+  - `REQ-023` = `NOT_STARTED`
+  - `REQ-024` = `IN_PROGRESS`
+  - `REQ-026` = `NOT_STARTED`
+  - `REQ-040` = `NOT_STARTED`
+
+---
+
 ## Operational Constraints
 
 **DO NOT:**
@@ -318,3 +402,4 @@ Across all 3 benchmark phases, **7,042,000 telemetry events** were generated, in
 ## Project Control Rule
 
 > **"Every future task must update this file to reflect the active phase, completed items, in-progress work, blockers, and next immediate steps."**
+

@@ -20,7 +20,7 @@ router = APIRouter(prefix="/fleets", tags=["Fleets"], dependencies=[Depends(chec
     summary="List Fleets",
     description="Returns all fleets belonging strictly to the authenticated tenant.",
 )
-async def list_fleets(
+def list_fleets(
     current_user: AuthenticatedUser = Depends(require_roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN)),
     conn: psycopg2.extensions.connection = Depends(get_db),
 ):
@@ -36,7 +36,7 @@ async def list_fleets(
     summary="Get Consolidated Fleet Health",
     description="Returns aggregate health status, vehicle breakdown, and work-order counts computed using optimized SQL queries (zero N+1 overhead).",
 )
-async def get_fleet_health(
+def get_fleet_health(
     fleet_id: str,
     current_user: AuthenticatedUser = Depends(require_roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN)),
     conn: psycopg2.extensions.connection = Depends(get_db),

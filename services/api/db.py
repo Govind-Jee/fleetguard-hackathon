@@ -8,9 +8,10 @@ import logging
 from contextlib import contextmanager
 from typing import Generator, Optional
 import psycopg2
-from psycopg2.pool import ThreadedConnectionPool
+from psycopg2.pool import PoolError, ThreadedConnectionPool
 import redis
 import clickhouse_connect
+import time
 
 from services.api.config import settings
 from services.api.exceptions import DatabaseUnavailableError
@@ -130,8 +131,18 @@ def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]
         raise DatabaseUnavailableError("PostgreSQL")
 
     conn = None
+    start_wait = time.perf_counter()
+    timeout = 2.0  # seconds bounded queue wait for pool exhaustion
+    while conn is None:
+        try:
+            conn = _pg_pool.getconn()
+        except PoolError:
+            if time.perf_counter() - start_wait >= timeout:
+                api_metrics.record_db_error("postgres")
+                raise
+            time.sleep(0.005)
+
     try:
-        conn = _pg_pool.getconn()
         yield conn
         conn.commit()
     except Exception as e:

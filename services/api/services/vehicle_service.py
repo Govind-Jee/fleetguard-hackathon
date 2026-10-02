@@ -53,8 +53,7 @@ class VehicleService:
                 f.fleet_id, f.name AS fleet_name, f.code AS fleet_code,
                 d.depot_id, d.name AS depot_name, d.code AS depot_code,
                 m.make, m.model_name, m.year AS model_year, m.vehicle_type,
-                m.engine_displacement_l, m.battery_capacity_kwh, m.curb_weight_kg,
-                COUNT(*) OVER() AS full_count
+                m.engine_displacement_l, m.battery_capacity_kwh, m.curb_weight_kg
             FROM vehicles v
             JOIN fleets f ON v.fleet_id = f.fleet_id
             JOIN depots d ON v.depot_id = d.depot_id
@@ -64,26 +63,44 @@ class VehicleService:
         ]
         params: List[Any] = [tenant_id]
 
+        count_parts = [
+            """
+            SELECT COUNT(*)
+            FROM vehicles v
+            JOIN vehicle_models m ON v.model_id = m.model_id
+            WHERE v.tenant_id = %s
+            """
+        ]
+        count_params: List[Any] = [tenant_id]
+
         if fleet_id:
             query_parts.append("AND v.fleet_id = %s")
             params.append(fleet_id)
+            count_parts.append("AND v.fleet_id = %s")
+            count_params.append(fleet_id)
         if vehicle_type:
             query_parts.append("AND m.vehicle_type = %s")
             params.append(vehicle_type.upper())
+            count_parts.append("AND m.vehicle_type = %s")
+            count_params.append(vehicle_type.upper())
         if status:
             query_parts.append("AND v.status = %s")
             params.append(status.upper())
+            count_parts.append("AND v.status = %s")
+            count_params.append(status.upper())
 
         query_parts.append("ORDER BY v.vin ASC LIMIT %s OFFSET %s;")
         params.extend([limit, offset])
 
         full_sql = " ".join(query_parts)
+        count_sql = " ".join(count_parts) + ";"
 
         with conn.cursor() as cur:
             cur.execute(full_sql, params)
             rows = cur.fetchall()
+            cur.execute(count_sql, count_params)
+            total_count = cur.fetchone()[0]
 
-        total_count = rows[0][-1] if rows else 0
         total_pages = ceil(total_count / limit) if total_count > 0 else 0
 
         items: List[VehicleSummary] = []

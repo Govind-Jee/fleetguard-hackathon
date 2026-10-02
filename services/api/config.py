@@ -42,7 +42,7 @@ class APISettings:
         self.POSTGRES_USER: str = os.getenv("POSTGRES_USER", "fleetguard_user")
         self.POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "fleetguard_dev_password")
         self.POSTGRES_POOL_MIN: int = int(os.getenv("POSTGRES_POOL_MIN", "2"))
-        self.POSTGRES_POOL_MAX: int = int(os.getenv("POSTGRES_POOL_MAX", "20"))
+        self.POSTGRES_POOL_MAX: int = int(os.getenv("POSTGRES_POOL_MAX", "35"))
 
         # Redis 7 (Hot state, caching, rate limiting)
         self.REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")

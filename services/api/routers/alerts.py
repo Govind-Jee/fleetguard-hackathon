@@ -21,7 +21,7 @@ router = APIRouter(prefix="/alerts", tags=["Alerts"], dependencies=[Depends(chec
     summary="List Operational Alerts",
     description="Returns durable historical alerts scoped to authenticated tenant. Supports severity and vehicle filters.",
 )
-async def list_alerts(
+def list_alerts(
     fleet_id: Optional[str] = Query(None, description="Filter by fleet UUID"),
     vin: Optional[str] = Query(None, description="Filter by VIN"),
     severity: Optional[str] = Query(None, pattern="^(WARNING|CRITICAL)$", description="Filter by alert severity"),
@@ -49,7 +49,7 @@ async def list_alerts(
     summary="Get Alert Details",
     description="Returns authoritative alert record by ID, verifying tenant ownership.",
 )
-async def get_alert(
+def get_alert(
     alert_id: str,
     current_user: AuthenticatedUser = Depends(require_roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN)),
     conn: psycopg2.extensions.connection = Depends(get_db),

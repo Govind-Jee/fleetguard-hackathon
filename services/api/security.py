@@ -50,6 +50,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Security Headers
+        response.headers["X-Process-Time-Ms"] = f"{(duration * 1000.0):.3f}"
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"

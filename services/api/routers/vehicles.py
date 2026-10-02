@@ -29,7 +29,7 @@ router = APIRouter(prefix="/vehicles", tags=["Vehicles"], dependencies=[Depends(
     summary="List Monitored Vehicles",
     description="Returns paginated vehicle records strictly scoped to the authenticated tenant. Supports fleet and powertrain filters.",
 )
-async def list_vehicles(
+def list_vehicles(
     fleet_id: Optional[str] = Query(None, description="Filter by fleet UUID"),
     vehicle_type: Optional[str] = Query(None, pattern="^(ICE|HEV|BEV)$", description="Filter by powertrain type"),
     status: Optional[str] = Query(None, pattern="^(ACTIVE|MAINTENANCE|DECOMMISSIONED|INACTIVE)$", description="Filter by status"),
@@ -55,7 +55,7 @@ async def list_vehicles(
     summary="Get Vehicle Details",
     description="Returns authoritative PostgreSQL 3NF relational data and current Redis transient hot state. Enforces tenant boundary.",
 )
-async def get_vehicle_detail(
+def get_vehicle_detail(
     vin: str,
     current_user: AuthenticatedUser = Depends(require_roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN)),
     conn: psycopg2.extensions.connection = Depends(get_db),
@@ -78,7 +78,7 @@ async def get_vehicle_detail(
     summary="Get Vehicle Operational Health",
     description="Returns latest operational status combining Redis hot state (GPS, telemetry, sequence) and PostgreSQL alerts summary.",
 )
-async def get_vehicle_health(
+def get_vehicle_health(
     vin: str,
     current_user: AuthenticatedUser = Depends(require_roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN)),
     conn: psycopg2.extensions.connection = Depends(get_db),
@@ -105,7 +105,7 @@ async def get_vehicle_health(
         "Decomposes log-odds into local contributing risk and protective factors."
     ),
 )
-async def get_vehicle_risk(
+def get_vehicle_risk(
     vin: str,
     current_user: AuthenticatedUser = Depends(require_roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN)),
     conn: psycopg2.extensions.connection = Depends(get_db),

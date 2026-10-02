@@ -25,7 +25,7 @@ router = APIRouter(prefix="/diagnostics", tags=["Diagnostics"], dependencies=[De
         "catalog of known mechanical fault signatures. NOTE: This represents embedding similarity search, not predictive ML."
     ),
 )
-async def get_similar_diagnostics(
+def get_similar_diagnostics(
     vector: str = Query(
         ...,
         description="Comma-separated 16-dimensional normalized telemetry embedding vector",

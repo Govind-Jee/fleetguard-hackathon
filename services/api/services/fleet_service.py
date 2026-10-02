@@ -78,22 +78,37 @@ class FleetService:
         if not f_row:
             return None
 
-        # Query 2: Fleet-wide active alerts & work-order status breakdown
+        # Query 2: Fleet-wide active alerts & work-order status breakdown (optimized CTE to eliminate Cartesian join)
         sql_activity = """
+        WITH fleet_vehicles AS (
+            SELECT vehicle_id FROM vehicles 
+            WHERE fleet_id = %s AND tenant_id = %s
+        ),
+        fleet_alerts AS (
+            SELECT 
+                COUNT(a.alert_id) FILTER (WHERE a.severity = 'CRITICAL' AND a.is_acknowledged = FALSE) AS crit_alerts,
+                COUNT(DISTINCT a.vehicle_id) FILTER (WHERE a.severity IN ('WARNING', 'CRITICAL') AND a.is_acknowledged = FALSE) AS high_risk_vehicles
+            FROM alerts a
+            JOIN fleet_vehicles fv ON a.vehicle_id = fv.vehicle_id
+            WHERE a.tenant_id = %s
+        ),
+        fleet_wo AS (
+            SELECT 
+                COUNT(wo.work_order_id) FILTER (WHERE wo.status = 'PENDING') AS wo_pending,
+                COUNT(wo.work_order_id) FILTER (WHERE wo.status = 'SCHEDULED') AS wo_scheduled,
+                COUNT(wo.work_order_id) FILTER (WHERE wo.status = 'IN_PROGRESS') AS wo_in_progress,
+                COUNT(wo.work_order_id) FILTER (WHERE wo.status = 'COMPLETED') AS wo_completed
+            FROM work_orders wo
+            JOIN fleet_vehicles fv ON wo.vehicle_id = fv.vehicle_id
+            WHERE wo.tenant_id = %s
+        )
         SELECT 
-            COUNT(DISTINCT a.alert_id) FILTER (WHERE a.severity = 'CRITICAL' AND a.is_acknowledged = FALSE) AS crit_alerts,
-            COUNT(DISTINCT a.vehicle_id) FILTER (WHERE a.severity IN ('WARNING', 'CRITICAL') AND a.is_acknowledged = FALSE) AS high_risk_vehicles,
-            COUNT(DISTINCT wo.work_order_id) FILTER (WHERE wo.status = 'PENDING') AS wo_pending,
-            COUNT(DISTINCT wo.work_order_id) FILTER (WHERE wo.status = 'SCHEDULED') AS wo_scheduled,
-            COUNT(DISTINCT wo.work_order_id) FILTER (WHERE wo.status = 'IN_PROGRESS') AS wo_in_progress,
-            COUNT(DISTINCT wo.work_order_id) FILTER (WHERE wo.status = 'COMPLETED') AS wo_completed
-        FROM vehicles v
-        LEFT JOIN alerts a ON v.vehicle_id = a.vehicle_id
-        LEFT JOIN work_orders wo ON v.vehicle_id = wo.vehicle_id
-        WHERE v.fleet_id = %s AND v.tenant_id = %s;
+            fa.crit_alerts, fa.high_risk_vehicles,
+            fwo.wo_pending, fwo.wo_scheduled, fwo.wo_in_progress, fwo.wo_completed
+        FROM fleet_alerts fa CROSS JOIN fleet_wo fwo;
         """
         with conn.cursor() as cur:
-            cur.execute(sql_activity, (fleet_id, tenant_id))
+            cur.execute(sql_activity, (fleet_id, tenant_id, tenant_id, tenant_id))
             act_row = cur.fetchone()
 
         total_v = f_row[3]
